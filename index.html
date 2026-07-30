@@ -245,6 +245,9 @@
                 <div className="flex flex-col items-center">
                     <div 
                         data-node-id={node.id}
+                        onPointerDown={(e) => {
+                            if (editMode) e.stopPropagation();
+                        }}
                         onClick={() => {
                             if (editMode) {
                                 onSelectNode(node.id);
@@ -351,6 +354,7 @@
             const dragPointerId = useRef(null);
             const activeTouchPointers = useRef(new Map());
             const pinchState = useRef({ startDistance: 0, startZoom: 1 });
+            const suppressNextClickRef = useRef(false);
             const undoStack = useRef([]);
             const redoStack = useRef([]);
             const importInputRef = useRef(null);
@@ -587,6 +591,7 @@
             const handlePointerDown = (e) => {
                 // Allow mouse left-click drag and all touch/pen drags.
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
+                suppressNextClickRef.current = false;
 
                 if (e.pointerType === 'touch') {
                     activeTouchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -637,6 +642,9 @@
                 if (!isDragging || dragPointerId.current !== e.pointerId) return;
                 const dx = e.clientX - lastPos.current.x;
                 const dy = e.clientY - lastPos.current.y;
+                if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+                    suppressNextClickRef.current = true;
+                }
                 setPan(p => ({ x: p.x + dx, y: p.y + dy }));
                 lastPos.current = { x: e.clientX, y: e.clientY };
             };
@@ -660,12 +668,26 @@
                     if (activeTouchPointers.current.size < 2) {
                         pinchState.current = { startDistance: 0, startZoom: zoom };
                     }
+
+                    if (containerRef.current && containerRef.current.hasPointerCapture(e.pointerId)) {
+                        containerRef.current.releasePointerCapture(e.pointerId);
+                    }
                     return;
                 }
 
                 if (dragPointerId.current !== e.pointerId) return;
                 setIsDragging(false);
                 dragPointerId.current = null;
+                if (containerRef.current && containerRef.current.hasPointerCapture(e.pointerId)) {
+                    containerRef.current.releasePointerCapture(e.pointerId);
+                }
+            };
+
+            const handleContainerClickCapture = (e) => {
+                if (!suppressNextClickRef.current) return;
+                e.preventDefault();
+                e.stopPropagation();
+                suppressNextClickRef.current = false;
             };
 
             const toggleNode = (id) => {
@@ -725,6 +747,60 @@
                 } catch {
                     // Ignore storage failures.
                 }
+            };
+
+            const validateImportedTree = (root) => {
+                const errors = [];
+                const seenIds = new Set();
+                const validTypes = new Set(TYPE_OPTIONS);
+
+                const walk = (node, path) => {
+                    if (!node || typeof node !== 'object' || Array.isArray(node)) {
+                        errors.push(`${path} must be an object`);
+                        return;
+                    }
+
+                    if (typeof node.id !== 'string' || !node.id.trim()) {
+                        errors.push(`${path}.id is required and must be a non-empty string`);
+                    } else if (seenIds.has(node.id)) {
+                        errors.push(`Duplicate id found: ${node.id}`);
+                    } else {
+                        seenIds.add(node.id);
+                    }
+
+                    if (typeof node.name !== 'string' || !node.name.trim()) {
+                        errors.push(`${path}.name is required and must be a non-empty string`);
+                    }
+
+                    if (typeof node.title !== 'string' || !node.title.trim()) {
+                        errors.push(`${path}.title is required and must be a non-empty string`);
+                    }
+
+                    if (node.type && !validTypes.has(node.type)) {
+                        errors.push(`${path}.type must be one of: ${Array.from(validTypes).join(', ')}`);
+                    }
+
+                    if (node.location !== undefined && typeof node.location !== 'string') {
+                        errors.push(`${path}.location must be a string`);
+                    }
+
+                    if (node.locations !== undefined) {
+                        if (!Array.isArray(node.locations) || node.locations.some(loc => typeof loc !== 'string')) {
+                            errors.push(`${path}.locations must be an array of strings`);
+                        }
+                    }
+
+                    if (node.children !== undefined) {
+                        if (!Array.isArray(node.children)) {
+                            errors.push(`${path}.children must be an array`);
+                        } else {
+                            node.children.forEach((child, idx) => walk(child, `${path}.children[${idx}]`));
+                        }
+                    }
+                };
+
+                walk(root, 'root');
+                return errors;
             };
 
             const buildGitHubApiUrl = () => (
@@ -861,60 +937,6 @@
                     setGithubSyncBusy(false);
                 }
             };
-
-            const validateImportedTree = useCallback((root) => {
-                const errors = [];
-                const seenIds = new Set();
-                const validTypes = new Set(TYPE_OPTIONS);
-
-                const walk = (node, path) => {
-                    if (!node || typeof node !== 'object' || Array.isArray(node)) {
-                        errors.push(`${path} must be an object`);
-                        return;
-                    }
-
-                    if (typeof node.id !== 'string' || !node.id.trim()) {
-                        errors.push(`${path}.id is required and must be a non-empty string`);
-                    } else if (seenIds.has(node.id)) {
-                        errors.push(`Duplicate id found: ${node.id}`);
-                    } else {
-                        seenIds.add(node.id);
-                    }
-
-                    if (typeof node.name !== 'string' || !node.name.trim()) {
-                        errors.push(`${path}.name is required and must be a non-empty string`);
-                    }
-
-                    if (typeof node.title !== 'string' || !node.title.trim()) {
-                        errors.push(`${path}.title is required and must be a non-empty string`);
-                    }
-
-                    if (node.type && !validTypes.has(node.type)) {
-                        errors.push(`${path}.type must be one of: ${Array.from(validTypes).join(', ')}`);
-                    }
-
-                    if (node.location !== undefined && typeof node.location !== 'string') {
-                        errors.push(`${path}.location must be a string`);
-                    }
-
-                    if (node.locations !== undefined) {
-                        if (!Array.isArray(node.locations) || node.locations.some(loc => typeof loc !== 'string')) {
-                            errors.push(`${path}.locations must be an array of strings`);
-                        }
-                    }
-
-                    if (node.children !== undefined) {
-                        if (!Array.isArray(node.children)) {
-                            errors.push(`${path}.children must be an array`);
-                        } else {
-                            node.children.forEach((child, idx) => walk(child, `${path}.children[${idx}]`));
-                        }
-                    }
-                };
-
-                walk(root, 'root');
-                return errors;
-            }, [TYPE_OPTIONS]);
 
             const pushUndoSnapshot = useCallback((snapshotSource) => {
                 undoStack.current.push(cloneNode(snapshotSource));
@@ -1313,6 +1335,7 @@
                         <div
                             ref={containerRef}
                             className="flex-1 relative overflow-hidden grab-cursor pan-surface"
+                            onClickCapture={handleContainerClickCapture}
                             onPointerDown={handlePointerDown}
                             onPointerMove={handlePointerMove}
                             onPointerUp={endDrag}
