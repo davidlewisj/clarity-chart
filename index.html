@@ -15,17 +15,29 @@
         body { margin: 0; padding: 0; overflow: hidden; }
         .grab-cursor { cursor: grab; }
         .grab-cursor:active { cursor: grabbing; }
+        .pan-surface { touch-action: none; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useRef, useEffect, useCallback } = React;
+        const { useState, useRef, useEffect, useCallback, useMemo } = React;
 
         // Simplified Icon Components (Standard SVGs for reliability)
         const MapPinIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>;
         const SearchIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
+        const TargetIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>;
+        const FitIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 3 3 3 3 9"/><line x1="3" y1="3" x2="10" y2="10"/><polyline points="15 3 21 3 21 9"/><line x1="21" y1="3" x2="14" y2="10"/><polyline points="9 21 3 21 3 15"/><line x1="3" y1="21" x2="10" y2="14"/><polyline points="15 21 21 21 21 15"/><line x1="21" y1="21" x2="14" y2="14"/></svg>;
+        const UndoIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 7H4v5"/><path d="M4 12c1.7-3.7 5.4-6 9.6-6 5.2 0 9.4 4.2 9.4 9.4"/></svg>;
+        const RedoIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 7h5v5"/><path d="M20 12c-1.7-3.7-5.4-6-9.6-6C5.2 6 1 10.2 1 15.4"/></svg>;
+        const ExportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>;
+        const ImportIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21V9"/><path d="m7 16 5 5 5-5"/><path d="M5 3h14"/></svg>;
+        const FolderIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="6" r="1.7"/><circle cx="12" cy="6" r="1.7"/><circle cx="18" cy="6" r="1.7"/><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/><circle cx="6" cy="18" r="1.7"/><circle cx="12" cy="18" r="1.7"/><circle cx="18" cy="18" r="1.7"/></svg>;
+        const EraserIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7 21 10-10"/><path d="m5 13 6 6"/><path d="m14 4 6 6-9 9H5l-4-4 13-13z"/></svg>;
+        const FilterXIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5h18l-7 8v5l-4 2v-7L3 5z"/><line x1="17" y1="7" x2="21" y2="11"/><line x1="21" y1="7" x2="17" y2="11"/></svg>;
+        const EditIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>;
+        const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
         const ZoomInIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>;
         const ZoomOutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="8" y1="11" x2="14" y2="11"/></svg>;
         const RefreshIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>;
@@ -39,7 +51,7 @@
             </div>
         );
 
-        const ORG_DATA = {
+        const INITIAL_ORG_DATA = {
             id: "1", name: "Tanya Kushner, DDS", title: "Visionary", type: "visionary", location: "Silverdale",
             children: [{
                 id: "2", name: "Joanne Giordano", title: "Integrator", type: "integrator", location: "Silverdale",
@@ -114,7 +126,7 @@
                         ]
                     },
                     {
-                        id: "7", name: "Tanya Kushner, DDS", title: "Dental Sleep Medicine Manager", type: "manager", location: "Silverdale",
+                        id: "7", name: "Tanya Kushner, DDS", title: "Dental Sleep Solutions", type: "manager", location: "Silverdale",
                         children: [
                             { id: "7-1", name: "Chris Dryer", title: "Lab Tech", type: "staff", location: "Silverdale" },
                             { 
@@ -144,13 +156,64 @@
             }]
         };
 
-        const OrgNode = ({ node, expandedNodes, onToggle, searchTerm }) => {
+        const STORAGE_KEY = 'clarity-chart-org-data-v1';
+        const GITHUB_TOKEN_KEY = 'clarity-chart-github-token-v1';
+        const GITHUB_SYNC = {
+            owner: 'davidlewisj',
+            repo: 'clarity-chart',
+            branch: 'main',
+            path: 'shared/clarity-chart-data.json'
+        };
+        const HISTORY_LIMIT = 50;
+
+        const sanitizeOrgData = (data) => {
+            if (!data || typeof data !== 'object') return INITIAL_ORG_DATA;
+
+            const removeIds = new Set(['6-4', '7-2-4']); // Julia Rivera and Ryann Uson
+
+            const walk = (node) => {
+                if (!node || typeof node !== 'object') return null;
+                if (removeIds.has(node.id)) return null;
+
+                const next = { ...node };
+                if (node.id === '7') {
+                    next.title = 'Dental Sleep Solutions';
+                }
+                if (Array.isArray(node.children)) {
+                    const normalizedChildren = [];
+                    for (const child of node.children) {
+                        const mapped = walk(child);
+                        if (!mapped) continue;
+                        if (Array.isArray(mapped)) normalizedChildren.push(...mapped);
+                        else normalizedChildren.push(mapped);
+                    }
+                    next.children = normalizedChildren;
+                }
+
+                // Remove Joanne and promote her direct reports under Kushner.
+                if (node.id === '2') {
+                    return Array.isArray(next.children) ? next.children : [];
+                }
+
+                return next;
+            };
+
+            const normalized = walk(data);
+            if (!normalized) return INITIAL_ORG_DATA;
+            if (Array.isArray(normalized)) {
+                return { ...INITIAL_ORG_DATA, children: normalized };
+            }
+            return normalized;
+        };
+
+        const OrgNode = ({ node, expandedNodes, onToggle, searchTerm, editMode, selectedNodeId, onSelectNode }) => {
             const hasChildren = node.children && node.children.length > 0;
             const isExpanded = expandedNodes.has(node.id);
             const isMatch = searchTerm && (
                 node.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                 node.title.toLowerCase().includes(searchTerm.toLowerCase())
             );
+            const isSelected = selectedNodeId === node.id;
 
             const HIDE_LOCATION_TYPES = ['visionary', 'integrator', 'manager'];
             const showLocation = !HIDE_LOCATION_TYPES.includes(node.type) && node.id !== "7-4";
@@ -181,10 +244,18 @@
             return (
                 <div className="flex flex-col items-center">
                     <div 
-                        onClick={() => hasChildren && onToggle(node.id)}
+                        data-node-id={node.id}
+                        onClick={() => {
+                            if (editMode) {
+                                onSelectNode(node.id);
+                                return;
+                            }
+                            if (hasChildren) onToggle(node.id);
+                        }}
                         className={`relative z-10 w-64 p-5 rounded-xl shadow-md border-2 transition-all duration-300 cursor-pointer
                             ${getTheme(node.type)}
                             ${isMatch ? 'ring-4 ring-yellow-400 scale-105 z-20 shadow-xl' : 'hover:shadow-lg hover:-translate-y-0.5'}
+                            ${isSelected ? 'ring-4 ring-emerald-400 scale-[1.02] shadow-xl' : ''}
                         `}
                     >
                         {showLocation && locationsToRender.length > 0 && (
@@ -210,7 +281,7 @@
 
                     {hasChildren && isExpanded && (
                         <div className="relative pt-10 flex">
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-10 bg-slate-300" />
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-10 bg-slate-300" />
                             <div className="flex gap-8">
                                 {node.children.map((child, idx) => {
                                     const isFirst = idx === 0;
@@ -219,11 +290,19 @@
                                     return (
                                         <div key={child.id} className="relative">
                                             {!isOnly && (
-                                                <div className={`absolute top-0 h-px bg-slate-300 transition-all ${isFirst ? 'left-1/2 right-0' : isLast ? 'left-0 right-1/2' : 'left-0 right-0'}`} />
+                                                <div className={`absolute top-0 h-[2px] bg-slate-300 ${isFirst ? 'left-1/2 -right-4' : isLast ? '-left-4 right-1/2' : '-left-4 -right-4'}`} />
                                             )}
-                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-10 bg-slate-300" />
+                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-10 bg-slate-300" />
                                             <div className="pt-10">
-                                                <OrgNode node={child} expandedNodes={expandedNodes} onToggle={onToggle} searchTerm={searchTerm} />
+                                                <OrgNode
+                                                    node={child}
+                                                    expandedNodes={expandedNodes}
+                                                    onToggle={onToggle}
+                                                    searchTerm={searchTerm}
+                                                    editMode={editMode}
+                                                    selectedNodeId={selectedNodeId}
+                                                    onSelectNode={onSelectNode}
+                                                />
                                             </div>
                                         </div>
                                     );
@@ -236,13 +315,188 @@
         };
 
         const App = () => {
+            const getResponsiveDefaultZoom = () => {
+                if (window.innerWidth < 640) return 0.45;
+                if (window.innerWidth < 1024) return 0.62;
+                return 0.8;
+            };
+
+            const [orgData, setOrgData] = useState(() => {
+                try {
+                    const saved = window.localStorage.getItem(STORAGE_KEY);
+                    if (!saved) return sanitizeOrgData(INITIAL_ORG_DATA);
+                    const parsed = JSON.parse(saved);
+                    if (parsed && typeof parsed === 'object' && parsed.id) return sanitizeOrgData(parsed);
+                    return sanitizeOrgData(INITIAL_ORG_DATA);
+                } catch {
+                    return sanitizeOrgData(INITIAL_ORG_DATA);
+                }
+            });
             const [expandedNodes, setExpandedNodes] = useState(new Set(["1", "2", "3", "4", "5", "6", "7", "7-2", "7-4"]));
             const [searchTerm, setSearchTerm] = useState("");
-            const [zoom, setZoom] = useState(0.8);
+            const [roleFilter, setRoleFilter] = useState('all');
+            const [locationFilter, setLocationFilter] = useState('all');
+            const [zoom, setZoom] = useState(getResponsiveDefaultZoom);
             const [pan, setPan] = useState({ x: 0, y: 0 });
             const [isDragging, setIsDragging] = useState(false);
+            const [editMode, setEditMode] = useState(false);
+            const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1024);
+            const [selectedNodeId, setSelectedNodeId] = useState("1");
+            const [editorMessage, setEditorMessage] = useState("");
+            const [importValidationErrors, setImportValidationErrors] = useState([]);
+            const [githubSyncBusy, setGithubSyncBusy] = useState(false);
             const containerRef = useRef(null);
+            const chartContentRef = useRef(null);
             const lastPos = useRef({ x: 0, y: 0 });
+            const dragPointerId = useRef(null);
+            const activeTouchPointers = useRef(new Map());
+            const pinchState = useRef({ startDistance: 0, startZoom: 1 });
+            const undoStack = useRef([]);
+            const redoStack = useRef([]);
+            const importInputRef = useRef(null);
+            const toolsMenuRef = useRef(null);
+            const toolsMenuButtonRef = useRef(null);
+            const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
+            const [toolsMenuPosition, setToolsMenuPosition] = useState({ top: 0, left: 0 });
+
+            const TYPE_OPTIONS = ['visionary', 'integrator', 'manager', 'supervisor', 'director', 'staff'];
+            const LOCATION_OPTIONS = ['Silverdale', 'Bellevue', 'Federal Way', 'Remote Support'];
+
+            const [newCard, setNewCard] = useState({
+                name: '',
+                title: '',
+                type: 'staff',
+                location: 'Silverdale',
+                parentId: '1'
+            });
+
+            const cloneNode = useCallback((node) => ({
+                ...node,
+                children: node.children ? node.children.map(cloneNode) : undefined
+            }), []);
+
+            const findNodeById = useCallback((node, id, parent = null) => {
+                if (!node) return null;
+                if (node.id === id) return { node, parent };
+                if (!node.children) return null;
+                for (const child of node.children) {
+                    const found = findNodeById(child, id, node);
+                    if (found) return found;
+                }
+                return null;
+            }, []);
+
+            const flattenNodes = useCallback((node) => {
+                if (!node) return [];
+                const current = [{ id: node.id, label: `${node.name} (${node.title})` }];
+                const children = (node.children || []).flatMap(flattenNodes);
+                return [...current, ...children];
+            }, []);
+
+            const isDescendant = useCallback((node, targetId) => {
+                if (!node || !node.children) return false;
+                for (const child of node.children) {
+                    if (child.id === targetId) return true;
+                    if (isDescendant(child, targetId)) return true;
+                }
+                return false;
+            }, []);
+
+            const deleteNodeById = useCallback((node, id) => {
+                if (!node.children) return false;
+                const before = node.children.length;
+                node.children = node.children.filter(child => child.id !== id);
+                if (node.children.length !== before) return true;
+                for (const child of node.children) {
+                    if (deleteNodeById(child, id)) return true;
+                }
+                return false;
+            }, []);
+
+            const selectedNode = findNodeById(orgData, selectedNodeId)?.node || null;
+            const allNodes = flattenNodes(orgData);
+
+            const filteredOrgData = useMemo(() => {
+                if (roleFilter === 'all' && locationFilter === 'all') return orgData;
+
+                const nodeMatches = (node) => {
+                    const typeOk = roleFilter === 'all' || node.type === roleFilter;
+                    const nodeLocations = node.locations || (node.location ? [node.location] : []);
+                    const locationOk = locationFilter === 'all' || nodeLocations.includes(locationFilter);
+                    return typeOk && locationOk;
+                };
+
+                const prune = (node) => {
+                    if (!node) return null;
+                    const prunedChildren = (node.children || [])
+                        .map(prune)
+                        .filter(Boolean);
+
+                    if (nodeMatches(node) || prunedChildren.length > 0) {
+                        return {
+                            ...node,
+                            children: prunedChildren.length > 0 ? prunedChildren : undefined
+                        };
+                    }
+                    return null;
+                };
+
+                const result = prune(orgData);
+                return result || { ...orgData, children: [] };
+            }, [orgData, roleFilter, locationFilter]);
+
+            const [editForm, setEditForm] = useState({
+                name: '',
+                title: '',
+                type: 'staff',
+                location: 'Silverdale',
+                parentId: '1'
+            });
+
+            useEffect(() => {
+                if (!selectedNode) return;
+                const parentId = findNodeById(orgData, selectedNode.id)?.parent?.id || selectedNode.id;
+                setEditForm({
+                    name: selectedNode.name || '',
+                    title: selectedNode.title || '',
+                    type: selectedNode.type || 'staff',
+                    location: selectedNode.location || (selectedNode.locations && selectedNode.locations[0]) || '',
+                    parentId
+                });
+            }, [selectedNodeId, orgData, selectedNode, findNodeById]);
+
+            const isEditDirty = useMemo(() => {
+                if (!selectedNode) return false;
+                const parentId = findNodeById(orgData, selectedNode.id)?.parent?.id || selectedNode.id;
+                const baseline = {
+                    name: selectedNode.name || '',
+                    title: selectedNode.title || '',
+                    type: selectedNode.type || 'staff',
+                    location: selectedNode.location || (selectedNode.locations && selectedNode.locations[0]) || '',
+                    parentId
+                };
+
+                return (
+                    baseline.name !== editForm.name ||
+                    baseline.title !== editForm.title ||
+                    baseline.type !== editForm.type ||
+                    baseline.location !== editForm.location ||
+                    baseline.parentId !== editForm.parentId
+                );
+            }, [selectedNode, editForm, orgData, findNodeById]);
+
+            const handleCancelEdit = () => {
+                if (!selectedNode) return;
+                const parentId = findNodeById(orgData, selectedNode.id)?.parent?.id || selectedNode.id;
+                setEditForm({
+                    name: selectedNode.name || '',
+                    title: selectedNode.title || '',
+                    type: selectedNode.type || 'staff',
+                    location: selectedNode.location || (selectedNode.locations && selectedNode.locations[0]) || '',
+                    parentId
+                });
+                setEditorStatus('Edit changes reverted.');
+            };
 
             const handleWheel = useCallback((e) => {
                 e.preventDefault();
@@ -258,18 +512,160 @@
                 }
             }, [handleWheel]);
 
-            const handleMouseDown = (e) => {
-                if (e.button !== 0) return;
-                setIsDragging(true);
-                lastPos.current = { x: e.clientX, y: e.clientY };
+            useEffect(() => {
+                const onResize = () => {
+                    setIsSmallScreen(window.innerWidth < 1024);
+                };
+                window.addEventListener('resize', onResize);
+                return () => window.removeEventListener('resize', onResize);
+            }, []);
+
+            useEffect(() => {
+                const closeMenuOnOutsidePress = (e) => {
+                    if (!toolsMenuRef.current) return;
+                    if (!toolsMenuRef.current.contains(e.target)) {
+                        setToolsMenuOpen(false);
+                    }
+                };
+
+                document.addEventListener('pointerdown', closeMenuOnOutsidePress);
+                document.addEventListener('mousedown', closeMenuOnOutsidePress);
+                document.addEventListener('touchstart', closeMenuOnOutsidePress, { passive: true });
+                return () => {
+                    document.removeEventListener('pointerdown', closeMenuOnOutsidePress);
+                    document.removeEventListener('mousedown', closeMenuOnOutsidePress);
+                    document.removeEventListener('touchstart', closeMenuOnOutsidePress);
+                };
+            }, []);
+
+            const updateToolsMenuPosition = useCallback(() => {
+                if (!toolsMenuButtonRef.current) return;
+                const rect = toolsMenuButtonRef.current.getBoundingClientRect();
+                const menuWidth = 240;
+                const maxLeft = Math.max(8, window.innerWidth - menuWidth - 8);
+                const left = Math.min(maxLeft, Math.max(8, rect.right - menuWidth));
+                const top = rect.bottom + 8;
+                setToolsMenuPosition({ top, left });
+            }, []);
+
+            const handleToolsMenuClick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setToolsMenuOpen(prev => {
+                    const next = !prev;
+                    if (next) updateToolsMenuPosition();
+                    return next;
+                });
             };
 
-            const handleMouseMove = (e) => {
-                if (!isDragging) return;
+            const handleToolsMenuKeyDown = (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setToolsMenuOpen(v => {
+                        const next = !v;
+                        if (next) updateToolsMenuPosition();
+                        return next;
+                    });
+                }
+                if (e.key === 'Escape') {
+                    setToolsMenuOpen(false);
+                }
+            };
+
+            useEffect(() => {
+                if (!toolsMenuOpen) return;
+
+                const onViewportChange = () => updateToolsMenuPosition();
+                window.addEventListener('resize', onViewportChange);
+                window.addEventListener('scroll', onViewportChange, true);
+                return () => {
+                    window.removeEventListener('resize', onViewportChange);
+                    window.removeEventListener('scroll', onViewportChange, true);
+                };
+            }, [toolsMenuOpen, updateToolsMenuPosition]);
+
+            const handlePointerDown = (e) => {
+                // Allow mouse left-click drag and all touch/pen drags.
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+                if (e.pointerType === 'touch') {
+                    activeTouchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                    if (activeTouchPointers.current.size === 2) {
+                        const points = Array.from(activeTouchPointers.current.values());
+                        const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+                        pinchState.current = { startDistance: distance, startZoom: zoom };
+                        setIsDragging(false);
+                        dragPointerId.current = null;
+                    } else if (activeTouchPointers.current.size === 1) {
+                        setIsDragging(true);
+                        dragPointerId.current = e.pointerId;
+                        lastPos.current = { x: e.clientX, y: e.clientY };
+                    }
+
+                    if (containerRef.current) {
+                        containerRef.current.setPointerCapture(e.pointerId);
+                    }
+                    return;
+                }
+
+                setIsDragging(true);
+                dragPointerId.current = e.pointerId;
+                lastPos.current = { x: e.clientX, y: e.clientY };
+                if (containerRef.current) {
+                    containerRef.current.setPointerCapture(e.pointerId);
+                }
+            };
+
+            const handlePointerMove = (e) => {
+                if (e.pointerType === 'touch') {
+                    if (activeTouchPointers.current.has(e.pointerId)) {
+                        activeTouchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+                    }
+
+                    if (activeTouchPointers.current.size >= 2) {
+                        const points = Array.from(activeTouchPointers.current.values());
+                        const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+                        if (pinchState.current.startDistance > 0) {
+                            const ratio = distance / pinchState.current.startDistance;
+                            const nextZoom = Math.min(Math.max(0.1, pinchState.current.startZoom * ratio), 2);
+                            setZoom(nextZoom);
+                        }
+                        return;
+                    }
+                }
+
+                if (!isDragging || dragPointerId.current !== e.pointerId) return;
                 const dx = e.clientX - lastPos.current.x;
                 const dy = e.clientY - lastPos.current.y;
                 setPan(p => ({ x: p.x + dx, y: p.y + dy }));
                 lastPos.current = { x: e.clientX, y: e.clientY };
+            };
+
+            const endDrag = (e) => {
+                if (e.pointerType === 'touch') {
+                    activeTouchPointers.current.delete(e.pointerId);
+
+                    if (dragPointerId.current === e.pointerId) {
+                        setIsDragging(false);
+                        dragPointerId.current = null;
+                    }
+
+                    if (activeTouchPointers.current.size === 1) {
+                        const [remainingPointerId, point] = Array.from(activeTouchPointers.current.entries())[0];
+                        dragPointerId.current = remainingPointerId;
+                        lastPos.current = { x: point.x, y: point.y };
+                        setIsDragging(true);
+                    }
+
+                    if (activeTouchPointers.current.size < 2) {
+                        pinchState.current = { startDistance: 0, startZoom: zoom };
+                    }
+                    return;
+                }
+
+                if (dragPointerId.current !== e.pointerId) return;
+                setIsDragging(false);
+                dragPointerId.current = null;
             };
 
             const toggleNode = (id) => {
@@ -280,53 +676,805 @@
                 });
             };
 
+            const clearEditorMessage = () => {
+                window.setTimeout(() => setEditorMessage(''), 2000);
+            };
+
+            const setEditorStatus = (message) => {
+                setEditorMessage(message);
+                clearEditorMessage();
+            };
+
+            const requireResetPhrase = (actionLabel) => {
+                const input = window.prompt(`${actionLabel} is destructive. Type RESET to continue.`);
+                return input === 'RESET';
+            };
+
+            const encodeBase64Utf8 = (text) => {
+                const bytes = new TextEncoder().encode(text);
+                let binary = '';
+                for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+                return window.btoa(binary);
+            };
+
+            const decodeBase64Utf8 = (base64) => {
+                const binary = window.atob(base64);
+                const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+                return new TextDecoder().decode(bytes);
+            };
+
+            const getGitHubToken = () => {
+                try {
+                    return window.localStorage.getItem(GITHUB_TOKEN_KEY) || '';
+                } catch {
+                    return '';
+                }
+            };
+
+            const setGitHubToken = (token) => {
+                try {
+                    if (token) window.localStorage.setItem(GITHUB_TOKEN_KEY, token);
+                } catch {
+                    // Ignore storage write failures.
+                }
+            };
+
+            const clearGitHubToken = () => {
+                try {
+                    window.localStorage.removeItem(GITHUB_TOKEN_KEY);
+                } catch {
+                    // Ignore storage failures.
+                }
+            };
+
+            const buildGitHubApiUrl = () => (
+                `https://api.github.com/repos/${GITHUB_SYNC.owner}/${GITHUB_SYNC.repo}/contents/${GITHUB_SYNC.path}?ref=${encodeURIComponent(GITHUB_SYNC.branch)}`
+            );
+
+            const fetchGitHubSharedFile = async (token = '') => {
+                const headers = { 'Accept': 'application/vnd.github+json' };
+                if (token) headers.Authorization = `Bearer ${token}`;
+
+                const res = await fetch(buildGitHubApiUrl(), { headers });
+                if (res.status === 404) return { exists: false };
+                if (!res.ok) {
+                    const detail = await res.text();
+                    throw new Error(`GitHub load failed (${res.status}): ${detail || res.statusText}`);
+                }
+
+                const payload = await res.json();
+                if (!payload || !payload.content) {
+                    throw new Error('GitHub response did not include file content.');
+                }
+
+                const decoded = decodeBase64Utf8(String(payload.content).replace(/\n/g, ''));
+                const parsed = JSON.parse(decoded);
+                const validationErrors = validateImportedTree(parsed);
+                if (validationErrors.length > 0) {
+                    throw new Error(`Shared file invalid (${validationErrors.length} issue${validationErrors.length > 1 ? 's' : ''}).`);
+                }
+
+                return {
+                    exists: true,
+                    sha: payload.sha,
+                    data: sanitizeOrgData(parsed)
+                };
+            };
+
+            const requestGitHubToken = () => {
+                const value = window.prompt('Enter a GitHub Personal Access Token with repo write access. This will be saved in local browser storage on this device.');
+                return value ? value.trim() : '';
+            };
+
+            const handleLoadSharedFromGitHub = useCallback(async (showStatus = true) => {
+                setGithubSyncBusy(true);
+                try {
+                    const token = getGitHubToken();
+                    const result = await fetchGitHubSharedFile(token);
+
+                    if (!result.exists) {
+                        if (showStatus) setEditorStatus('No shared GitHub file found yet. Save once to create it.');
+                        return;
+                    }
+
+                    if (showStatus) pushUndoSnapshot(orgData);
+                    setOrgData(result.data);
+                    setExpandedNodes(new Set([result.data.id]));
+                    setSelectedNodeId(result.data.id);
+                    if (showStatus) setEditorStatus('Loaded shared chart from GitHub.');
+                } catch (err) {
+                    const message = err && err.message ? err.message : 'Unknown GitHub load error.';
+                    if (showStatus) setEditorStatus(message);
+                } finally {
+                    setGithubSyncBusy(false);
+                }
+            }, [orgData, pushUndoSnapshot, setEditorStatus, validateImportedTree]);
+
+            const handleSaveSharedToGitHub = async () => {
+                setGithubSyncBusy(true);
+                try {
+                    let token = getGitHubToken();
+                    if (!token) {
+                        token = requestGitHubToken();
+                        if (!token) {
+                            setEditorStatus('GitHub save cancelled (no token provided).');
+                            return;
+                        }
+                    }
+
+                    let existing = null;
+                    try {
+                        existing = await fetchGitHubSharedFile(token);
+                    } catch (readErr) {
+                        const msg = String(readErr && readErr.message ? readErr.message : readErr);
+                        if (msg.includes('(401)') || msg.includes('(403)')) {
+                            clearGitHubToken();
+                            const fresh = requestGitHubToken();
+                            if (!fresh) {
+                                setEditorStatus('GitHub save cancelled (token required).');
+                                return;
+                            }
+                            token = fresh;
+                            existing = await fetchGitHubSharedFile(token).catch((err) => {
+                                const text = String(err && err.message ? err.message : err);
+                                if (text.includes('(404)')) return { exists: false };
+                                throw err;
+                            });
+                        } else if (msg.includes('(404)')) {
+                            existing = { exists: false };
+                        } else {
+                            throw readErr;
+                        }
+                    }
+
+                    const headers = {
+                        'Accept': 'application/vnd.github+json',
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    };
+
+                    const payload = {
+                        message: `Update shared Clarity Chart (${new Date().toISOString()})`,
+                        content: encodeBase64Utf8(JSON.stringify(orgData, null, 2)),
+                        branch: GITHUB_SYNC.branch
+                    };
+
+                    if (existing && existing.exists && existing.sha) payload.sha = existing.sha;
+
+                    const res = await fetch(buildGitHubApiUrl(), {
+                        method: 'PUT',
+                        headers,
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!res.ok) {
+                        const detail = await res.text();
+                        throw new Error(`GitHub save failed (${res.status}): ${detail || res.statusText}`);
+                    }
+
+                    setGitHubToken(token);
+                    setEditorStatus('Saved shared chart to GitHub.');
+                } catch (err) {
+                    const message = err && err.message ? err.message : 'Unknown GitHub save error.';
+                    setEditorStatus(message);
+                } finally {
+                    setGithubSyncBusy(false);
+                }
+            };
+
+            const validateImportedTree = useCallback((root) => {
+                const errors = [];
+                const seenIds = new Set();
+                const validTypes = new Set(TYPE_OPTIONS);
+
+                const walk = (node, path) => {
+                    if (!node || typeof node !== 'object' || Array.isArray(node)) {
+                        errors.push(`${path} must be an object`);
+                        return;
+                    }
+
+                    if (typeof node.id !== 'string' || !node.id.trim()) {
+                        errors.push(`${path}.id is required and must be a non-empty string`);
+                    } else if (seenIds.has(node.id)) {
+                        errors.push(`Duplicate id found: ${node.id}`);
+                    } else {
+                        seenIds.add(node.id);
+                    }
+
+                    if (typeof node.name !== 'string' || !node.name.trim()) {
+                        errors.push(`${path}.name is required and must be a non-empty string`);
+                    }
+
+                    if (typeof node.title !== 'string' || !node.title.trim()) {
+                        errors.push(`${path}.title is required and must be a non-empty string`);
+                    }
+
+                    if (node.type && !validTypes.has(node.type)) {
+                        errors.push(`${path}.type must be one of: ${Array.from(validTypes).join(', ')}`);
+                    }
+
+                    if (node.location !== undefined && typeof node.location !== 'string') {
+                        errors.push(`${path}.location must be a string`);
+                    }
+
+                    if (node.locations !== undefined) {
+                        if (!Array.isArray(node.locations) || node.locations.some(loc => typeof loc !== 'string')) {
+                            errors.push(`${path}.locations must be an array of strings`);
+                        }
+                    }
+
+                    if (node.children !== undefined) {
+                        if (!Array.isArray(node.children)) {
+                            errors.push(`${path}.children must be an array`);
+                        } else {
+                            node.children.forEach((child, idx) => walk(child, `${path}.children[${idx}]`));
+                        }
+                    }
+                };
+
+                walk(root, 'root');
+                return errors;
+            }, [TYPE_OPTIONS]);
+
+            const pushUndoSnapshot = useCallback((snapshotSource) => {
+                undoStack.current.push(cloneNode(snapshotSource));
+                if (undoStack.current.length > HISTORY_LIMIT) undoStack.current.shift();
+                redoStack.current = [];
+            }, [cloneNode]);
+
+            useEffect(() => {
+                try {
+                    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orgData));
+                } catch {
+                    // Ignore storage write failures (e.g. private mode quota restrictions).
+                }
+            }, [orgData]);
+
+            useEffect(() => {
+                if (!findNodeById(orgData, selectedNodeId)) {
+                    setSelectedNodeId(orgData.id);
+                }
+            }, [orgData, selectedNodeId, findNodeById]);
+
+            useEffect(() => {
+                handleLoadSharedFromGitHub(false);
+            }, []);
+
+            useEffect(() => {
+                if (!editMode || !selectedNodeId) return;
+                setNewCard(prev => ({ ...prev, parentId: selectedNodeId }));
+            }, [editMode, selectedNodeId]);
+
+            const handleUndo = () => {
+                if (undoStack.current.length === 0) {
+                    setEditorStatus('Nothing to undo.');
+                    return;
+                }
+                const previous = undoStack.current.pop();
+                redoStack.current.push(cloneNode(orgData));
+                setOrgData(previous);
+                setEditorStatus('Undo applied.');
+            };
+
+            const handleRedo = () => {
+                if (redoStack.current.length === 0) {
+                    setEditorStatus('Nothing to redo.');
+                    return;
+                }
+                const next = redoStack.current.pop();
+                undoStack.current.push(cloneNode(orgData));
+                setOrgData(next);
+                setEditorStatus('Redo applied.');
+            };
+
+            useEffect(() => {
+                const onKeyDown = (e) => {
+                    const target = e.target;
+                    const isEditable = target && (
+                        target.tagName === 'INPUT' ||
+                        target.tagName === 'TEXTAREA' ||
+                        target.tagName === 'SELECT' ||
+                        target.isContentEditable
+                    );
+                    if (isEditable) return;
+
+                    const isMod = e.ctrlKey || e.metaKey;
+                    if (!isMod || e.key.toLowerCase() !== 'z') return;
+
+                    e.preventDefault();
+                    if (e.shiftKey) handleRedo();
+                    else handleUndo();
+                };
+
+                window.addEventListener('keydown', onKeyDown);
+                return () => window.removeEventListener('keydown', onKeyDown);
+            }, [handleUndo, handleRedo]);
+
+            const handleExportData = () => {
+                const json = JSON.stringify(orgData, null, 2);
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `clarity-chart-${new Date().toISOString().slice(0, 10)}.json`;
+                link.click();
+                window.URL.revokeObjectURL(url);
+                setEditorStatus('Chart exported as JSON.');
+            };
+
+            const handleFocusSelectedCard = () => {
+                if (!containerRef.current || !selectedNodeId) return;
+                const target = containerRef.current.querySelector(`[data-node-id="${selectedNodeId}"]`);
+                if (!target) {
+                    setEditorStatus('Could not locate the selected card on screen.');
+                    return;
+                }
+
+                const containerBox = containerRef.current.getBoundingClientRect();
+                const targetBox = target.getBoundingClientRect();
+                const dx = (containerBox.left + containerBox.width / 2) - (targetBox.left + targetBox.width / 2);
+                const dy = (containerBox.top + containerBox.height / 2) - (targetBox.top + targetBox.height / 2);
+                setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+                setEditorStatus('Centered on selected card.');
+            };
+
+            const handleFitToScreen = () => {
+                if (!containerRef.current || !chartContentRef.current) return;
+
+                const containerBox = containerRef.current.getBoundingClientRect();
+                const contentBox = chartContentRef.current.getBoundingClientRect();
+
+                if (contentBox.width < 1 || contentBox.height < 1) {
+                    setEditorStatus('Nothing to fit on screen.');
+                    return;
+                }
+
+                const padding = 28;
+                const widthRatio = (containerBox.width - padding * 2) / contentBox.width;
+                const heightRatio = (containerBox.height - padding * 2) / contentBox.height;
+                const fitRatio = Math.min(widthRatio, heightRatio);
+                if (!Number.isFinite(fitRatio) || fitRatio <= 0) return;
+
+                const nextZoom = Math.min(Math.max(0.1, zoom * fitRatio), 2);
+                setZoom(nextZoom);
+
+                // Wait for the zoom update to paint, then center the fitted content.
+                window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => {
+                        if (!containerRef.current || !chartContentRef.current) return;
+                        const updatedContainer = containerRef.current.getBoundingClientRect();
+                        const updatedContent = chartContentRef.current.getBoundingClientRect();
+                        const dx = (updatedContainer.left + updatedContainer.width / 2) - (updatedContent.left + updatedContent.width / 2);
+                        const dy = (updatedContainer.top + updatedContainer.height / 2) - (updatedContent.top + updatedContent.height / 2);
+                        setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+                        setEditorStatus('Chart fitted to screen.');
+                    });
+                });
+            };
+
+            const handleImportData = (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+
+                setImportValidationErrors([]);
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const parsed = JSON.parse(String(reader.result || ''));
+                        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                            setImportValidationErrors(['root must be an object']);
+                            setEditorStatus('Invalid JSON: root must be an object.');
+                            return;
+                        }
+
+                        const validationErrors = validateImportedTree(parsed);
+                        if (validationErrors.length > 0) {
+                            setImportValidationErrors(validationErrors);
+                            const preview = validationErrors.slice(0, 3).join(' | ');
+                            setEditorStatus(`Import blocked (${validationErrors.length} issue${validationErrors.length > 1 ? 's' : ''}): ${preview}`);
+                            return;
+                        }
+
+                        const shouldImport = requireResetPhrase('Import');
+                        if (!shouldImport) {
+                            setEditorStatus('Import cancelled.');
+                            return;
+                        }
+
+                        const sanitized = sanitizeOrgData(parsed);
+                        pushUndoSnapshot(orgData);
+                        setOrgData(sanitized);
+                        setExpandedNodes(new Set([sanitized.id]));
+                        setSelectedNodeId(sanitized.id);
+                        setImportValidationErrors([]);
+                        setEditorStatus('Chart imported.');
+                    } catch {
+                        setImportValidationErrors(['file content is not valid JSON']);
+                        setEditorStatus('Import failed: file is not valid JSON.');
+                    } finally {
+                        e.target.value = '';
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            const handleResetChart = () => {
+                const shouldReset = requireResetPhrase('Reset');
+                if (!shouldReset) {
+                    setEditorStatus('Reset cancelled.');
+                    return;
+                }
+
+                pushUndoSnapshot(orgData);
+                const resetData = cloneNode(INITIAL_ORG_DATA);
+                setOrgData(resetData);
+                setExpandedNodes(new Set(["1", "2", "3", "4", "5", "6", "7", "7-2", "7-4"]));
+                setZoom(getResponsiveDefaultZoom());
+                setPan({ x: 0, y: 0 });
+                setSelectedNodeId('1');
+                setEditorStatus('Chart reset to default.');
+            };
+
+            const openImportPicker = () => {
+                if (importInputRef.current) {
+                    setImportValidationErrors([]);
+                    importInputRef.current.click();
+                }
+            };
+
+            const handleAddCard = () => {
+                if (!newCard.name.trim() || !newCard.title.trim()) {
+                    setEditorStatus('Name and title are required for a new card.');
+                    return;
+                }
+
+                const draft = cloneNode(orgData);
+                const parentHit = findNodeById(draft, newCard.parentId);
+                if (!parentHit) {
+                    setEditorStatus('Parent card not found.');
+                    return;
+                }
+
+                const newId = `node-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                const nodeToAdd = {
+                    id: newId,
+                    name: newCard.name.trim(),
+                    title: newCard.title.trim(),
+                    type: newCard.type,
+                    location: newCard.location || ''
+                };
+
+                if (!parentHit.node.children) parentHit.node.children = [];
+                parentHit.node.children.push(nodeToAdd);
+
+                pushUndoSnapshot(orgData);
+                setOrgData(draft);
+                setExpandedNodes(prev => new Set(prev).add(newCard.parentId));
+                setSelectedNodeId(newId);
+                setEditorStatus('Card added.');
+                setNewCard(prev => ({ ...prev, name: '', title: '' }));
+            };
+
+            const handleSaveCard = () => {
+                if (!selectedNode) return;
+                if (!editForm.name.trim() || !editForm.title.trim()) {
+                    setEditorStatus('Name and title are required.');
+                    return;
+                }
+
+                const draft = cloneNode(orgData);
+                const currentHit = findNodeById(draft, selectedNode.id);
+                if (!currentHit) return;
+
+                currentHit.node.name = editForm.name.trim();
+                currentHit.node.title = editForm.title.trim();
+                currentHit.node.type = editForm.type;
+                if (editForm.location) {
+                    currentHit.node.location = editForm.location;
+                    delete currentHit.node.locations;
+                }
+
+                const currentParentId = currentHit.parent ? currentHit.parent.id : currentHit.node.id;
+                if (editForm.parentId && editForm.parentId !== currentParentId && selectedNode.id !== '1') {
+                    if (selectedNode.id === editForm.parentId || isDescendant(currentHit.node, editForm.parentId)) {
+                        setEditorStatus('Invalid move: cannot place a card under itself or its descendants.');
+                        return;
+                    }
+
+                    if (currentHit.parent) {
+                        currentHit.parent.children = (currentHit.parent.children || []).filter(child => child.id !== selectedNode.id);
+                    }
+                    const targetParentHit = findNodeById(draft, editForm.parentId);
+                    if (!targetParentHit) {
+                        setEditorStatus('Target parent not found.');
+                        return;
+                    }
+                    if (!targetParentHit.node.children) targetParentHit.node.children = [];
+                    targetParentHit.node.children.push(currentHit.node);
+                    setExpandedNodes(prev => new Set(prev).add(editForm.parentId));
+                }
+
+                pushUndoSnapshot(orgData);
+                setOrgData(draft);
+                setEditorStatus('Card updated.');
+            };
+
+            const handleDeleteCard = () => {
+                if (!selectedNode || selectedNode.id === '1') {
+                    setEditorStatus('The top card cannot be deleted.');
+                    return;
+                }
+
+                const shouldDelete = requireResetPhrase(`Delete "${selectedNode.name}" (ID: ${selectedNode.id}) and its sub-tree`);
+                if (!shouldDelete) {
+                    setEditorStatus('Delete cancelled.');
+                    return;
+                }
+
+                const draft = cloneNode(orgData);
+                const deleted = deleteNodeById(draft, selectedNode.id);
+                if (!deleted) {
+                    setEditorStatus('Card could not be deleted.');
+                    return;
+                }
+
+                pushUndoSnapshot(orgData);
+                setOrgData(draft);
+                setSelectedNodeId('1');
+                setEditorStatus('Card deleted.');
+            };
+
             return (
                 <div className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden font-sans select-none">
-                    <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between z-50 shadow-sm">
-                        <div className="flex items-center gap-8">
+                    <div className="bg-white border-b border-slate-200 px-3 md:px-8 py-3 md:py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 z-50 shadow-sm">
+                        <div className="flex items-center gap-4 md:gap-8 min-w-0">
                             <Logo />
                             <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
-                            <div>
-                                <h1 className="font-extrabold text-slate-900 text-xl leading-none uppercase">Clarity Chart</h1>
+                            <div className="min-w-0">
+                                <h1 className="font-extrabold text-slate-900 text-lg md:text-xl leading-none uppercase truncate">Clarity Chart</h1>
                                 <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Center for TMJ & Sleep Solutions NW</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="w-full lg:w-auto overflow-x-auto overflow-y-visible">
+                        <div className="flex items-center gap-2 md:gap-4 min-w-max pb-1 pr-2">
                             <div className="relative">
                                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"><SearchIcon /></div>
                                 <input 
                                     type="text" 
                                     placeholder="Search team..."
-                                    className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm w-64 focus:ring-2 focus:ring-black outline-none transition-all"
+                                    className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm w-44 sm:w-56 md:w-64 focus:ring-2 focus:ring-black outline-none transition-all"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     onMouseDown={(e) => e.stopPropagation()}
                                 />
                             </div>
-                            <div className="flex items-center bg-slate-100 rounded-xl p-1">
-                                <button onClick={() => setZoom(z => Math.max(0.1, z - 0.1))} className="p-2 hover:bg-white rounded-lg transition-all"><ZoomOutIcon /></button>
-                                <span className="text-[11px] font-bold text-slate-600 w-12 text-center">{Math.round(zoom * 100)}%</span>
-                                <button onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-2 hover:bg-white rounded-lg transition-all"><ZoomInIcon /></button>
+                            <select
+                                value={roleFilter}
+                                onChange={(e) => setRoleFilter(e.target.value)}
+                                className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-wide text-slate-600"
+                            >
+                                <option value="all">All Roles</option>
+                                {TYPE_OPTIONS.map(type => <option key={type} value={type}>{type}</option>)}
+                            </select>
+                            <select
+                                value={locationFilter}
+                                onChange={(e) => setLocationFilter(e.target.value)}
+                                className="px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-wide text-slate-600"
+                            >
+                                <option value="all">All Locations</option>
+                                {LOCATION_OPTIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                            </select>
+                            <div ref={toolsMenuRef} className="relative">
+                                <button
+                                    ref={toolsMenuButtonRef}
+                                    type="button"
+                                    title="Tools"
+                                    aria-label="Tools"
+                                    aria-haspopup="menu"
+                                    aria-expanded={toolsMenuOpen}
+                                    onClick={handleToolsMenuClick}
+                                    onKeyDown={handleToolsMenuKeyDown}
+                                    className="p-2.5 rounded-xl border bg-white text-slate-600 border-slate-200 cursor-pointer hover:bg-slate-50 touch-manipulation"
+                                >
+                                    <FolderIcon />
+                                </button>
+                                {toolsMenuOpen && (
+                                    <div onPointerDown={(e) => e.stopPropagation()} className="fixed w-60 rounded-xl border border-slate-200 bg-white shadow-xl z-[120] p-2" style={{ top: `${toolsMenuPosition.top}px`, left: `${toolsMenuPosition.left}px` }} role="menu" aria-label="Toolbar tools">
+                                        <button title="Clear filters" aria-label="Clear filters" onClick={() => { setRoleFilter('all'); setLocationFilter('all'); setToolsMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-slate-100"><FilterXIcon /><span>Clear Filters</span></button>
+                                        <button title="Reset view" aria-label="Reset view" onClick={() => { setPan({x:0, y:0}); setZoom(getResponsiveDefaultZoom()); setToolsMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-slate-100"><RefreshIcon /><span>Reset View</span></button>
+                                        <button title="Fit to screen" aria-label="Fit to screen" onClick={() => { handleFitToScreen(); setToolsMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-slate-100"><FitIcon /><span>Fit to Screen</span></button>
+                                        <button title="Focus selected card" aria-label="Focus selected card" onClick={() => { handleFocusSelectedCard(); setToolsMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-slate-100"><TargetIcon /><span>Focus Selected</span></button>
+                                        <button title="Load shared chart from GitHub" aria-label="Load shared chart from GitHub" onClick={() => { handleLoadSharedFromGitHub(true); setToolsMenuOpen(false); }} disabled={githubSyncBusy} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"><ImportIcon /><span>Load Shared (GitHub)</span></button>
+                                        <button title="Save shared chart to GitHub" aria-label="Save shared chart to GitHub" onClick={() => { handleSaveSharedToGitHub(); setToolsMenuOpen(false); }} disabled={githubSyncBusy} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50"><ExportIcon /><span>Save Shared (GitHub)</span></button>
+                                        <button title="Export chart" aria-label="Export chart" onClick={() => { handleExportData(); setToolsMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-slate-100"><ExportIcon /><span>Export</span></button>
+                                        <button title="Import chart" aria-label="Import chart" onClick={() => { openImportPicker(); setToolsMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-slate-100"><ImportIcon /><span>Import</span></button>
+                                        <button title="Reset chart" aria-label="Reset chart" onClick={() => { handleResetChart(); setToolsMenuOpen(false); }} className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm text-rose-700 hover:bg-rose-50"><EraserIcon /><span>Reset Chart</span></button>
+                                        <button title={editMode ? 'Close editor' : 'Open editor'} aria-label={editMode ? 'Close editor' : 'Open editor'} onClick={() => { setEditMode(v => !v); setToolsMenuOpen(false); }} className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left text-sm hover:bg-slate-100 ${editMode ? 'text-emerald-700' : 'text-slate-700'}`}>
+                                            {editMode ? <CloseIcon /> : <EditIcon />}
+                                            <span>{editMode ? 'Close Editor' : 'Open Editor'}</span>
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                            <button onClick={() => { setPan({x:0, y:0}); setZoom(0.8); }} className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-sm"><RefreshIcon /></button>
+                            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden">
+                                <button title="Zoom out" aria-label="Zoom out" onClick={() => setZoom(z => Math.max(0.1, z - 0.1))} className="p-2.5 text-slate-600 hover:bg-slate-50"><ZoomOutIcon /></button>
+                                <div className="text-[11px] font-bold text-slate-600 min-w-[56px] px-2 text-center border-x border-slate-200">{Math.round(zoom * 100)}%</div>
+                                <button title="Zoom in" aria-label="Zoom in" onClick={() => setZoom(z => Math.min(2, z + 0.1))} className="p-2.5 text-slate-600 hover:bg-slate-50"><ZoomInIcon /></button>
+                            </div>
+                            <button title="Undo" aria-label="Undo" onClick={handleUndo} className="p-2.5 rounded-xl border bg-white text-slate-600 border-slate-200"><UndoIcon /></button>
+                            <button title="Redo" aria-label="Redo" onClick={handleRedo} className="p-2.5 rounded-xl border bg-white text-slate-600 border-slate-200"><RedoIcon /></button>
+                            <input ref={importInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportData} />
+                        </div>
                         </div>
                     </div>
 
-                    <div 
-                        ref={containerRef}
-                        className="flex-1 relative overflow-hidden grab-cursor"
-                        onMouseDown={handleMouseDown}
-                        onMouseMove={handleMouseMove}
-                        onMouseUp={() => setIsDragging(false)}
-                        onMouseLeave={() => setIsDragging(false)}
-                    >
-                        <div className="absolute inset-0 opacity-[0.3]" style={{ backgroundImage: `radial-gradient(circle, #cbd5e1 1px, transparent 1px)`, backgroundSize: `${30 * zoom}px ${30 * zoom}px`, transform: `translate(${pan.x}px, ${pan.y}px)` }} />
-                        <div className="absolute w-full flex justify-center pt-20 pointer-events-none" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'top center', transition: isDragging ? 'none' : 'transform 0.1s ease-out' }}>
-                            <div className="pointer-events-auto">
-                                <OrgNode node={ORG_DATA} expandedNodes={expandedNodes} onToggle={toggleNode} searchTerm={searchTerm} />
+                    <div className="flex-1 min-h-0 flex">
+                        <div
+                            ref={containerRef}
+                            className="flex-1 relative overflow-hidden grab-cursor pan-surface"
+                            onPointerDown={handlePointerDown}
+                            onPointerMove={handlePointerMove}
+                            onPointerUp={endDrag}
+                            onPointerCancel={endDrag}
+                        >
+                            <div className="absolute inset-0 opacity-[0.3]" style={{ backgroundImage: `radial-gradient(circle, #cbd5e1 1px, transparent 1px)`, backgroundSize: `${30 * zoom}px ${30 * zoom}px`, transform: `translate(${pan.x}px, ${pan.y}px)` }} />
+                            <div className="absolute w-full flex justify-center pt-20 pointer-events-none" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: 'top center', transition: isDragging ? 'none' : 'transform 0.1s ease-out' }}>
+                                <div ref={chartContentRef} className="pointer-events-auto">
+                                    {filteredOrgData && ((filteredOrgData.children && filteredOrgData.children.length > 0) || roleFilter === 'all' && locationFilter === 'all') ? (
+                                        <OrgNode
+                                            node={filteredOrgData}
+                                            expandedNodes={expandedNodes}
+                                            onToggle={toggleNode}
+                                            searchTerm={searchTerm}
+                                            editMode={editMode}
+                                            selectedNodeId={selectedNodeId}
+                                            onSelectNode={setSelectedNodeId}
+                                        />
+                                    ) : (
+                                        <div className="w-80 rounded-xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
+                                            <p className="text-sm font-bold text-slate-800">No cards match the active filters.</p>
+                                            <p className="mt-1 text-xs text-slate-500">Try clearing role/location filters.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
+
+                        {editMode && isSmallScreen && (
+                            <div className="absolute inset-0 bg-black/35 z-[80]" onClick={() => setEditMode(false)} />
+                        )}
+
+                        {editMode && (
+                            <aside className={`${isSmallScreen ? 'absolute right-0 top-0 bottom-0 z-[85] w-[min(92vw,360px)] shadow-2xl' : 'w-[340px]'} border-l border-slate-200 bg-white p-4 overflow-y-auto`}>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditMode(false)}
+                                    className="ml-auto flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100"
+                                    title="Close editor"
+                                    aria-label="Close editor"
+                                >
+                                    <CloseIcon />
+                                </button>
+                                <h2 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Card Editor</h2>
+                                <p className="text-xs text-slate-500 mt-1">Tap a card in the chart, then edit it or add a new card under it.</p>
+
+                                {editorMessage && <div className="mt-3 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">{editorMessage}</div>}
+
+                                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Edit Card</h3>
+                                        {isEditDirty && <span className="text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-100 border border-amber-200 rounded-md px-2 py-1">Unsaved</span>}
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Selected Card</label>
+                                        <div className="text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-2">{selectedNode ? `${selectedNode.name} (${selectedNode.id})` : 'None'}</div>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Name</label>
+                                        <input value={editForm.name} onChange={(e) => setEditForm(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Title</label>
+                                        <input value={editForm.title} onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Type</label>
+                                        <select value={editForm.type} onChange={(e) => setEditForm(f => ({ ...f, type: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm">
+                                            {TYPE_OPTIONS.map(type => <option key={type} value={type}>{type}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Location</label>
+                                        <select value={editForm.location} onChange={(e) => setEditForm(f => ({ ...f, location: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm">
+                                            {LOCATION_OPTIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Parent (Level Placement)</label>
+                                        <select value={editForm.parentId} onChange={(e) => setEditForm(f => ({ ...f, parentId: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm">
+                                            {allNodes.filter(option => option.id !== selectedNodeId).map(option => (
+                                                <option key={option.id} value={option.id}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="mt-4 flex gap-2">
+                                        <button onClick={handleSaveCard} className="flex-1 px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold uppercase tracking-wide">Save Card</button>
+                                        <button onClick={handleCancelEdit} className="px-3 py-2 bg-white text-slate-700 border border-slate-300 rounded-lg text-xs font-bold uppercase tracking-wide">Cancel</button>
+                                        <button onClick={handleDeleteCard} className="px-3 py-2 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold uppercase tracking-wide">Delete</button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                                    <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Add Card</h3>
+                                    <p className="mt-1 text-[11px] text-slate-600">Parent defaults to the currently selected card in edit mode.</p>
+
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Name</label>
+                                        <input value={newCard.name} onChange={(e) => setNewCard(f => ({ ...f, name: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Title</label>
+                                        <input value={newCard.title} onChange={(e) => setNewCard(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm" />
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Type</label>
+                                        <select value={newCard.type} onChange={(e) => setNewCard(f => ({ ...f, type: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm">
+                                            {TYPE_OPTIONS.map(type => <option key={type} value={type}>{type}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Location</label>
+                                        <select value={newCard.location} onChange={(e) => setNewCard(f => ({ ...f, location: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm">
+                                            {LOCATION_OPTIONS.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="mt-3 space-y-2">
+                                        <label className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Parent (Level Placement)</label>
+                                        <select value={newCard.parentId} onChange={(e) => setNewCard(f => ({ ...f, parentId: e.target.value }))} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm">
+                                            {allNodes.map(option => (
+                                                <option key={option.id} value={option.id}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <button onClick={handleAddCard} className="mt-4 w-full px-3 py-2 bg-emerald-600 text-white rounded-lg text-xs font-bold uppercase tracking-wide">Add Card</button>
+                                </div>
+                            </aside>
+                        )}
                     </div>
+
+                    {importValidationErrors.length > 0 && (
+                        <div className="absolute inset-0 bg-black/40 z-[90] flex items-center justify-center p-4">
+                            <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+                                <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+                                    <div>
+                                        <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-900">Import Validation Details</h3>
+                                        <p className="text-xs text-slate-500 mt-1">Found {importValidationErrors.length} issue{importValidationErrors.length > 1 ? 's' : ''} in the selected file.</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setImportValidationErrors([])}
+                                        className="px-3 py-1.5 text-xs font-bold uppercase tracking-wide rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                                <div className="max-h-[55vh] overflow-y-auto p-4 bg-slate-50">
+                                    <ol className="space-y-2 list-decimal list-inside text-sm text-slate-700">
+                                        {importValidationErrors.map((error, idx) => (
+                                            <li key={`${error}-${idx}`} className="bg-white border border-slate-200 rounded-lg px-3 py-2">{error}</li>
+                                        ))}
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
