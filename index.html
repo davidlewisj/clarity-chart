@@ -246,7 +246,8 @@
                     <div 
                         data-node-id={node.id}
                         onPointerDown={(e) => {
-                            if (editMode) e.stopPropagation();
+                            // Keep card interactions from triggering pan-drag state on the container.
+                            e.stopPropagation();
                         }}
                         onClick={() => {
                             if (editMode) {
