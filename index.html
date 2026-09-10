@@ -1302,6 +1302,7 @@
                 setExpandedNodes(prev => {
                     const next = new Set(prev);
                     next.add(targetId);
+                    next.add(draggedId);
                     if (mode === 'parent' && targetHit.parent) next.add(targetHit.parent.id);
                     return next;
                 });
