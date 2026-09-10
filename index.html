@@ -40,6 +40,8 @@
         const CloseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>;
         const ZoomInIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>;
         const ZoomOutIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="8" y1="11" x2="14" y2="11"/></svg>;
+        const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
+        const MinusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>;
         const RefreshIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>;
         const ChevronDownIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
 
@@ -206,7 +208,7 @@
             return normalized;
         };
 
-        const OrgNode = ({ node, expandedNodes, onToggle, searchTerm, editMode, selectedNodeId, onSelectNode }) => {
+        const OrgNode = ({ node, expandedNodes, onToggle, searchTerm, editMode, selectedNodeId, onSelectNode, onAddChild, onDeleteNode, onDragStart, onDragOver, onDrop, onDragEnd, dropTargetId, draggedNodeId }) => {
             const hasChildren = node.children && node.children.length > 0;
             const isExpanded = expandedNodes.has(node.id);
             const isMatch = searchTerm && (
@@ -245,10 +247,31 @@
                 <div className="flex flex-col items-center">
                     <div 
                         data-node-id={node.id}
+                        draggable={editMode && node.id !== '1'}
                         onPointerDown={(e) => {
                             // Keep card interactions from triggering pan-drag state on the container.
                             e.stopPropagation();
                         }}
+                        onDragStart={(e) => {
+                            if (!editMode || node.id === '1') {
+                                e.preventDefault();
+                                return;
+                            }
+                            onDragStart(node, e);
+                        }}
+                        onDragOver={(e) => {
+                            if (!editMode) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDragOver(node, e);
+                        }}
+                        onDrop={(e) => {
+                            if (!editMode) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onDrop(node, e);
+                        }}
+                        onDragEnd={onDragEnd}
                         onClick={() => {
                             if (editMode) {
                                 onSelectNode(node.id);
@@ -260,6 +283,7 @@
                             ${getTheme(node.type)}
                             ${isMatch ? 'ring-4 ring-yellow-400 scale-105 z-20 shadow-xl' : 'hover:shadow-lg hover:-translate-y-0.5'}
                             ${isSelected ? 'ring-4 ring-emerald-400 scale-[1.02] shadow-xl' : ''}
+                            ${dropTargetId === node.id && draggedNodeId !== node.id ? 'ring-4 ring-orange-400 scale-[1.03]' : ''}
                         `}
                     >
                         {showLocation && locationsToRender.length > 0 && (
@@ -276,7 +300,33 @@
                             <h3 className={`font-bold text-sm leading-tight w-full text-left ${showLocation ? 'pr-12' : ''}`}>{node.name}</h3>
                             <p className="text-[11px] font-medium opacity-70 uppercase tracking-wide text-left w-full">{node.title}</p>
                         </div>
-                        {hasChildren && (
+                        {editMode ? (
+                            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-full border border-slate-200 p-0.5 shadow-sm z-30">
+                                <button
+                                    type="button"
+                                    title={`Add card under ${node.name}`}
+                                    aria-label={`Add card under ${node.name}`}
+                                    draggable="false"
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => { e.stopPropagation(); onAddChild(node); }}
+                                    className="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-600 text-white hover:bg-emerald-700"
+                                >
+                                    <PlusIcon />
+                                </button>
+                                <button
+                                    type="button"
+                                    title={node.id === '1' ? 'The top card cannot be deleted' : `Delete ${node.name}`}
+                                    aria-label={node.id === '1' ? 'The top card cannot be deleted' : `Delete ${node.name}`}
+                                    disabled={node.id === '1'}
+                                    draggable="false"
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => { e.stopPropagation(); onDeleteNode(node); }}
+                                    className="w-6 h-6 flex items-center justify-center rounded-full bg-rose-600 text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-35"
+                                >
+                                    <MinusIcon />
+                                </button>
+                            </div>
+                        ) : hasChildren && (
                             <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-white rounded-full border border-slate-200 p-0.5 shadow-sm">
                                 <ChevronDownIcon className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                             </div>
@@ -306,6 +356,14 @@
                                                     editMode={editMode}
                                                     selectedNodeId={selectedNodeId}
                                                     onSelectNode={onSelectNode}
+                                                    onAddChild={onAddChild}
+                                                    onDeleteNode={onDeleteNode}
+                                                    onDragStart={onDragStart}
+                                                    onDragOver={onDragOver}
+                                                    onDrop={onDrop}
+                                                    onDragEnd={onDragEnd}
+                                                    dropTargetId={dropTargetId}
+                                                    draggedNodeId={draggedNodeId}
                                                 />
                                             </div>
                                         </div>
@@ -344,6 +402,9 @@
             const [pan, setPan] = useState({ x: 0, y: 0 });
             const [isDragging, setIsDragging] = useState(false);
             const [editMode, setEditMode] = useState(false);
+            const [draggedNodeId, setDraggedNodeId] = useState(null);
+            const [dropTargetId, setDropTargetId] = useState(null);
+            const [dropMode, setDropMode] = useState('child');
             const [isSmallScreen, setIsSmallScreen] = useState(window.innerWidth < 1024);
             const [selectedNodeId, setSelectedNodeId] = useState("1");
             const [editorMessage, setEditorMessage] = useState("");
@@ -416,6 +477,17 @@
                     if (deleteNodeById(child, id)) return true;
                 }
                 return false;
+            }, []);
+
+            const removeNodeById = useCallback((node, id) => {
+                if (!node.children) return null;
+                const childIndex = node.children.findIndex(child => child.id === id);
+                if (childIndex !== -1) return node.children.splice(childIndex, 1)[0];
+                for (const child of node.children) {
+                    const removed = removeNodeById(child, id);
+                    if (removed) return removed;
+                }
+                return null;
             }, []);
 
             const selectedNode = findNodeById(orgData, selectedNodeId)?.node || null;
@@ -1146,6 +1218,132 @@
                 }
             };
 
+            const clearCardDrag = () => {
+                setDraggedNodeId(null);
+                setDropTargetId(null);
+                setDropMode('child');
+            };
+
+            const handleCardDragStart = (node, e) => {
+                setDraggedNodeId(node.id);
+                setDropTargetId(null);
+                setDropMode('child');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', node.id);
+            };
+
+            const handleCardDragOver = (targetNode, e) => {
+                if (!draggedNodeId || draggedNodeId === targetNode.id) {
+                    setDropTargetId(null);
+                    return;
+                }
+
+                const draggedHit = findNodeById(orgData, draggedNodeId);
+                if (!draggedHit || targetNode.id === '1' && draggedNodeId === '1' || isDescendant(draggedHit.node, targetNode.id)) {
+                    setDropTargetId(null);
+                    return;
+                }
+
+                const bounds = e.currentTarget.getBoundingClientRect();
+                const nextMode = e.clientY < bounds.top + bounds.height / 2 ? 'parent' : 'child';
+                setDropTargetId(targetNode.id);
+                setDropMode(nextMode);
+                e.dataTransfer.dropEffect = 'move';
+            };
+
+            const handleMoveNode = (draggedId, targetId, mode = 'child') => {
+                if (!draggedId || draggedId === '1' || draggedId === targetId) {
+                    setEditorStatus('That card cannot be moved there.');
+                    return;
+                }
+
+                const currentDraggedHit = findNodeById(orgData, draggedId);
+                if (!currentDraggedHit || isDescendant(currentDraggedHit.node, targetId)) {
+                    setEditorStatus('A card cannot be placed under its own descendant.');
+                    return;
+                }
+
+                const draft = cloneNode(orgData);
+                const draggedNode = removeNodeById(draft, draggedId);
+                if (!draggedNode) {
+                    setEditorStatus('Dragged card could not be found.');
+                    return;
+                }
+
+                const targetHit = findNodeById(draft, targetId);
+                if (!targetHit) {
+                    setEditorStatus('Drop target not found.');
+                    return;
+                }
+
+                if (mode === 'parent') {
+                    if (!targetHit.parent) {
+                        setEditorStatus('The top card cannot be replaced.');
+                        return;
+                    }
+
+                    const targetChildren = targetHit.node.children || [];
+                    const targetIndex = targetHit.parent.children.findIndex(child => child.id === targetId);
+                    if (targetIndex === -1) {
+                        setEditorStatus('Drop target could not be updated.');
+                        return;
+                    }
+
+                    targetHit.node.children = undefined;
+                    draggedNode.children = [targetHit.node, ...targetChildren, ...(draggedNode.children || [])];
+                    targetHit.parent.children[targetIndex] = draggedNode;
+                } else {
+                    if (!targetHit.node.children) targetHit.node.children = [];
+                    targetHit.node.children.push(draggedNode);
+                }
+
+                pushUndoSnapshot(orgData);
+                setOrgData(draft);
+                setExpandedNodes(prev => {
+                    const next = new Set(prev);
+                    next.add(targetId);
+                    if (mode === 'parent' && targetHit.parent) next.add(targetHit.parent.id);
+                    return next;
+                });
+                setSelectedNodeId(draggedId);
+                setEditorStatus(mode === 'parent' ? 'Card placed as parent.' : 'Card moved.');
+            };
+
+            const handleCardDrop = (targetNode, e) => {
+                const sourceId = draggedNodeId || e.dataTransfer.getData('text/plain');
+                handleMoveNode(sourceId, targetNode.id, dropMode);
+                clearCardDrag();
+            };
+
+            const handleAddChild = (parentNode) => {
+                const draft = cloneNode(orgData);
+                const parentHit = findNodeById(draft, parentNode.id);
+                if (!parentHit) {
+                    setEditorStatus('Parent card not found.');
+                    return;
+                }
+
+                const newId = `node-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+                const inheritedLocation = parentNode.location || (parentNode.locations || [])[0] || 'Silverdale';
+                const nodeToAdd = {
+                    id: newId,
+                    name: 'New Card',
+                    title: 'New Role',
+                    type: 'staff',
+                    location: inheritedLocation
+                };
+
+                if (!parentHit.node.children) parentHit.node.children = [];
+                parentHit.node.children.push(nodeToAdd);
+
+                pushUndoSnapshot(orgData);
+                setOrgData(draft);
+                setExpandedNodes(prev => new Set(prev).add(parentNode.id));
+                setSelectedNodeId(newId);
+                setNewCard(prev => ({ ...prev, parentId: newId }));
+                setEditorStatus('Card added.');
+            };
+
             const handleAddCard = () => {
                 if (!newCard.name.trim() || !newCard.title.trim()) {
                     setEditorStatus('Name and title are required for a new card.');
@@ -1223,20 +1421,22 @@
                 setEditorStatus('Card updated.');
             };
 
-            const handleDeleteCard = () => {
-                if (!selectedNode || selectedNode.id === '1') {
+            const handleDeleteNode = (nodeToDelete, confirmDelete = true) => {
+                if (!nodeToDelete || nodeToDelete.id === '1') {
                     setEditorStatus('The top card cannot be deleted.');
                     return;
                 }
 
-                const shouldDelete = requireResetPhrase(`Delete "${selectedNode.name}" (ID: ${selectedNode.id}) and its sub-tree`);
-                if (!shouldDelete) {
-                    setEditorStatus('Delete cancelled.');
-                    return;
+                if (confirmDelete) {
+                    const shouldDelete = requireResetPhrase(`Delete "${nodeToDelete.name}" (ID: ${nodeToDelete.id}) and its sub-tree`);
+                    if (!shouldDelete) {
+                        setEditorStatus('Delete cancelled.');
+                        return;
+                    }
                 }
 
                 const draft = cloneNode(orgData);
-                const deleted = deleteNodeById(draft, selectedNode.id);
+                const deleted = deleteNodeById(draft, nodeToDelete.id);
                 if (!deleted) {
                     setEditorStatus('Card could not be deleted.');
                     return;
@@ -1247,6 +1447,8 @@
                 setSelectedNodeId('1');
                 setEditorStatus('Card deleted.');
             };
+
+            const handleDeleteCard = () => handleDeleteNode(selectedNode);
 
             return (
                 <div className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden font-sans select-none">
@@ -1337,6 +1539,20 @@
                             ref={containerRef}
                             className="flex-1 relative overflow-hidden grab-cursor pan-surface"
                             onClickCapture={handleContainerClickCapture}
+                            onDragOver={(e) => {
+                                if (!editMode || !draggedNodeId) return;
+                                e.preventDefault();
+                                setDropTargetId('1');
+                                setDropMode('child');
+                                e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDrop={(e) => {
+                                if (!editMode || !draggedNodeId) return;
+                                e.preventDefault();
+                                const sourceId = draggedNodeId || e.dataTransfer.getData('text/plain');
+                                handleMoveNode(sourceId, '1', 'child');
+                                clearCardDrag();
+                            }}
                             onPointerDown={handlePointerDown}
                             onPointerMove={handlePointerMove}
                             onPointerUp={endDrag}
@@ -1354,6 +1570,14 @@
                                             editMode={editMode}
                                             selectedNodeId={selectedNodeId}
                                             onSelectNode={setSelectedNodeId}
+                                            onAddChild={handleAddChild}
+                                            onDeleteNode={(node) => handleDeleteNode(node, false)}
+                                            onDragStart={handleCardDragStart}
+                                            onDragOver={handleCardDragOver}
+                                            onDrop={handleCardDrop}
+                                            onDragEnd={clearCardDrag}
+                                            dropTargetId={dropTargetId}
+                                            draggedNodeId={draggedNodeId}
                                         />
                                     ) : (
                                         <div className="w-80 rounded-xl border border-slate-200 bg-white px-6 py-5 text-center shadow-sm">
