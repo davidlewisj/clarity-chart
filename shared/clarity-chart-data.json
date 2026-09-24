@@ -1,0 +1,402 @@
+{
+  "id": "1",
+  "name": "Tanya Kushner, DDS",
+  "title": "Visionary",
+  "type": "visionary",
+  "location": "Silverdale",
+  "children": [
+    {
+      "id": "4",
+      "name": "David Lewis",
+      "title": "Operations Manager",
+      "type": "manager",
+      "location": "Bellevue",
+      "children": [
+        {
+          "id": "4-1",
+          "name": "Kayla Bodnar",
+          "title": "DME Supervisor",
+          "type": "supervisor",
+          "location": "Bellevue",
+          "children": [
+            {
+              "id": "4-1-1",
+              "name": "Marlena Figueroa",
+              "title": "DME Admin",
+              "type": "staff",
+              "location": "Silverdale"
+            }
+          ]
+        },
+        {
+          "id": "4-2",
+          "name": "Patrick Mercurio",
+          "title": "Virtual Assistant",
+          "type": "staff",
+          "location": "Remote Support"
+        },
+        {
+          "id": "4-3",
+          "name": "Joseph G Smith, DNP",
+          "title": "Medical Director",
+          "type": "director",
+          "location": "Silverdale",
+          "children": [
+            {
+              "id": "node-1789080479190-262",
+              "name": "Laetixia Dujon",
+              "title": "MA",
+              "type": "staff",
+              "location": "Silverdale"
+            },
+            {
+              "id": "node-1789080487620-328",
+              "name": "Mary Abastillas",
+              "title": "MA",
+              "type": "staff",
+              "location": "Silverdale"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5",
+      "name": "Laura Holt",
+      "title": "HR Manager",
+      "type": "director",
+      "location": "Silverdale",
+      "children": [
+        {
+          "id": "5-2",
+          "name": "Josy Haggard",
+          "title": "Accounts Payable (AP) Specialist",
+          "type": "staff",
+          "location": "Silverdale"
+        },
+        {
+          "id": "5-3",
+          "name": "Sue Beck",
+          "title": "Treatment Coordinator Supervisor",
+          "type": "supervisor",
+          "location": "Silverdale",
+          "children": [
+            {
+              "id": "5-3-1",
+              "name": "Serina Sok",
+              "title": "Treatment Coordinator",
+              "type": "staff",
+              "location": "Federal Way"
+            },
+            {
+              "id": "5-3-2",
+              "name": "Ashley Olsen",
+              "title": "Treatment Coordinator",
+              "type": "staff",
+              "location": "Bellevue"
+            }
+          ]
+        },
+        {
+          "id": "5-4",
+          "name": "Stefanie Allen",
+          "title": "Insurance Coordinator",
+          "type": "supervisor",
+          "location": "Silverdale",
+          "children": [
+            {
+              "id": "5-4-2",
+              "name": "Fatima Gerasmio",
+              "title": "Coordination",
+              "type": "staff",
+              "location": "Remote Support"
+            }
+          ]
+        },
+        {
+          "id": "node-1789077121618-265",
+          "name": "Katie Fanua",
+          "title": "Front Office Manager",
+          "type": "supervisor",
+          "location": "Silverdale",
+          "children": [
+            {
+              "id": "6-1",
+              "name": "Skylar Sbragia",
+              "title": "Patient Care Coordinator",
+              "type": "staff",
+              "location": "Silverdale",
+              "children": []
+            },
+            {
+              "id": "6-2",
+              "name": "Simon Tavoi",
+              "title": "Patient Care Coordinator Lead/Trainer",
+              "type": "staff",
+              "location": "Silverdale",
+              "children": []
+            },
+            {
+              "id": "6-3",
+              "name": "Daisy Martinez",
+              "title": "Patient Care Coordinator",
+              "type": "staff",
+              "location": "Federal Way",
+              "children": []
+            },
+            {
+              "id": "6-5",
+              "name": "Jordan Staley",
+              "title": "Patient Care Coordinator",
+              "type": "staff",
+              "location": "Bellevue",
+              "children": []
+            },
+            {
+              "id": "node-1789080647986-197",
+              "name": "Demi Platino",
+              "title": "Patient Care Coordinator",
+              "type": "staff",
+              "location": "Remote Support"
+            },
+            {
+              "id": "node-1789080714423-9",
+              "name": "Barbie Loyola",
+              "title": "N/A",
+              "type": "staff",
+              "location": "Remote Support"
+            }
+          ]
+        },
+        {
+          "id": "node-1789079094440-72",
+          "name": "Emma McCutchen",
+          "title": "Billing Supervisor",
+          "type": "supervisor",
+          "location": "Silverdale",
+          "children": [
+            {
+              "id": "5-1",
+              "name": "Brianna Harding",
+              "title": "Billing Lead",
+              "type": "staff",
+              "location": "Silverdale",
+              "children": []
+            },
+            {
+              "id": "5-1-3",
+              "name": "Courtney Madlung",
+              "title": "Biller",
+              "type": "staff",
+              "location": "Silverdale",
+              "children": []
+            },
+            {
+              "id": "5-1-1",
+              "name": "Caitlin Carter",
+              "title": "Biller",
+              "type": "staff",
+              "location": "Silverdale",
+              "children": []
+            },
+            {
+              "id": "node-1789079804231-387",
+              "name": "Yekaterina Kuznyuk",
+              "title": "Biller",
+              "type": "staff",
+              "location": "Remote Support"
+            }
+          ]
+        },
+        {
+          "id": "node-1789079665547-693",
+          "name": "Hailey Dolmseth",
+          "title": "Records Supervisor",
+          "type": "supervisor",
+          "location": "Remote Support",
+          "children": [
+            {
+              "id": "node-1789079729793-892",
+              "name": "Danica Siquioco",
+              "title": "Records Coordinator",
+              "type": "staff",
+              "location": "Remote Support"
+            }
+          ]
+        },
+        {
+          "id": "3-1",
+          "name": "Zuleica Ramirez",
+          "title": "Scheduler",
+          "type": "supervisor",
+          "location": "Silverdale",
+          "children": [
+            {
+              "id": "node-1789080890436-365",
+              "name": "Jocelyn Hawk",
+              "title": "Scheduler",
+              "type": "staff",
+              "location": "Silverdale",
+              "children": []
+            },
+            {
+              "id": "3-2",
+              "name": "Tyanna Trail",
+              "title": "Scheduler",
+              "type": "staff",
+              "location": "Silverdale",
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "7",
+      "name": "Tanya Kushner, DDS",
+      "title": "Clinical Manager",
+      "type": "manager",
+      "location": "Silverdale",
+      "children": [
+        {
+          "id": "7-1",
+          "name": "Chris Dryer",
+          "title": "Lab Tech",
+          "type": "staff",
+          "location": "Silverdale"
+        },
+        {
+          "id": "7-2",
+          "name": "Victoria Jones",
+          "title": "Dental Sleep Assistant Lead II",
+          "type": "supervisor",
+          "location": "Silverdale",
+          "children": [
+            {
+              "id": "7-2-1",
+              "name": "Gabby Pearson",
+              "title": "Dental Assistant",
+              "type": "staff",
+              "location": "Silverdale"
+            },
+            {
+              "id": "7-2-2",
+              "name": "Nancy Smith",
+              "title": "Dental Assistant",
+              "type": "staff",
+              "location": "Silverdale"
+            },
+            {
+              "id": "7-2-5",
+              "name": "Anahita Afkham",
+              "title": "Dental Assistant",
+              "type": "staff",
+              "location": "Bellevue"
+            },
+            {
+              "id": "7-2-6",
+              "name": "Sumiko Haugen",
+              "title": "Dental Assistant Lead",
+              "type": "staff",
+              "location": "Bellevue"
+            },
+            {
+              "id": "node-1789078545834-481",
+              "name": "Evelyn Simington",
+              "title": "Dental Assistant",
+              "type": "staff",
+              "location": "Silverdale"
+            },
+            {
+              "id": "node-1789079343219-622",
+              "name": "Ritchie Latasa",
+              "title": "Dental Assistant",
+              "type": "staff",
+              "location": "Remote Support"
+            },
+            {
+              "id": "node-1789080541435-416",
+              "name": "Breanna Hethcock",
+              "title": "Dental Assistant",
+              "type": "staff",
+              "location": "Silverdale"
+            },
+            {
+              "id": "node-1789080586335-735",
+              "name": "Heidi Hartsock",
+              "title": "Dental Assistant",
+              "type": "staff",
+              "location": "Silverdale"
+            }
+          ]
+        },
+        {
+          "id": "7-4",
+          "name": "Tanya Kushner, DDS",
+          "title": "Dental Director",
+          "type": "director",
+          "location": "Silverdale",
+          "children": [
+            {
+              "id": "7-4-1",
+              "name": "Gemma Kwolek, DDS",
+              "title": "Dental Provider",
+              "type": "staff",
+              "location": "Silverdale"
+            },
+            {
+              "id": "7-4-2",
+              "name": "Bita Maraghehpour, DDS, MPH, DABOP",
+              "title": "Dental Provider",
+              "type": "staff",
+              "locations": [
+                "Bellevue",
+                "Federal Way"
+              ]
+            },
+            {
+              "id": "7-4-4",
+              "name": "Elizabeth Smith, DMD",
+              "title": "Dental Provider",
+              "type": "staff",
+              "location": "Silverdale"
+            },
+            {
+              "id": "7-4-5",
+              "name": "Rattan Bains, DMD",
+              "title": "Dental Provider",
+              "type": "staff",
+              "locations": [
+                "Bellevue",
+                "Federal Way"
+              ]
+            },
+            {
+              "id": "node-1789079270206-984",
+              "name": "Daniel Stuardo, DMD",
+              "title": "Dental Provider",
+              "type": "staff",
+              "location": "Silverdale"
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "name": "Lindsay Theriault",
+          "title": "Sales, Marketing and Scheduling Manager",
+          "type": "manager",
+          "location": "Silverdale",
+          "children": []
+        },
+        {
+          "id": "3-3",
+          "name": "Claire King",
+          "title": "Scheduling Coordinator",
+          "type": "supervisor",
+          "location": "Remote Support",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
