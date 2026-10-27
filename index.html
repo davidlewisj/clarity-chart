@@ -1857,24 +1857,24 @@
                             <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
                             <div className="shrink-0">
                                 <h1 className="font-extrabold text-slate-900 text-lg md:text-xl leading-none uppercase whitespace-nowrap">Clarity Chart</h1>
+                                <div className="flex items-center gap-3 mt-1.5" role="tablist" aria-label="Charts">
+                                    {CHART_DEFS.map(def => (
+                                        <button
+                                            key={def.id}
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={activeChartId === def.id}
+                                            onClick={() => handleSwitchChart(def.id)}
+                                            className={`pb-0.5 text-[10px] font-bold uppercase tracking-widest border-b-2 transition-colors ${activeChartId === def.id ? 'text-slate-900 border-slate-900' : 'text-slate-400 border-transparent hover:text-slate-600'}`}
+                                        >
+                                            {def.name}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                         <div className="w-full lg:w-auto overflow-x-auto overflow-y-visible">
                         <div className="flex items-center gap-2 md:gap-4 min-w-max pb-1 pr-2">
-                            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden" role="tablist" aria-label="Charts">
-                                {CHART_DEFS.map(def => (
-                                    <button
-                                        key={def.id}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={activeChartId === def.id}
-                                        onClick={() => handleSwitchChart(def.id)}
-                                        className={`px-3 py-2 text-xs font-bold uppercase tracking-wide ${activeChartId === def.id ? 'bg-black text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-                                    >
-                                        {def.name}
-                                    </button>
-                                ))}
-                            </div>
                             <div className="relative">
                                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"><SearchIcon /></div>
                                 <input 
