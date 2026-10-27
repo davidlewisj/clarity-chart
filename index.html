@@ -89,29 +89,6 @@
                             "title": "Virtual Assistant",
                             "type": "staff",
                             "location": "Remote Support"
-                        },
-                        {
-                            "id": "4-3",
-                            "name": "Joseph G Smith, DNP",
-                            "title": "Medical Director",
-                            "type": "director",
-                            "location": "Silverdale",
-                            "children": [
-                                {
-                                    "id": "node-1789080479190-262",
-                                    "name": "Laetixia Dujon",
-                                    "title": "MA",
-                                    "type": "staff",
-                                    "location": "Silverdale"
-                                },
-                                {
-                                    "id": "node-1789080487620-328",
-                                    "name": "Mary Abastillas",
-                                    "title": "MA",
-                                    "type": "staff",
-                                    "location": "Silverdale"
-                                }
-                            ]
                         }
                     ]
                 },
@@ -456,7 +433,41 @@
             ]
         };
 
-        const STORAGE_KEY = 'clarity-chart-org-data-v1';
+        const INITIAL_MEDICAL_DATA = {
+            "id": "4-3",
+            "name": "Joseph G Smith, DNP",
+            "title": "Medical Director",
+            "type": "director",
+            "location": "Silverdale",
+            "children": [
+                {
+                    "id": "node-1789080479190-262",
+                    "name": "Laetixia Dujon",
+                    "title": "MA",
+                    "type": "staff",
+                    "location": "Silverdale"
+                },
+                {
+                    "id": "node-1789080487620-328",
+                    "name": "Mary Abastillas",
+                    "title": "MA",
+                    "type": "staff",
+                    "location": "Silverdale"
+                }
+            ]
+        };
+
+        // Joseph G Smith's medical team lives in its own chart, separate from the main org chart.
+        const MEDICAL_ROOT_ID = '4-3';
+        const CHART_DEFS = [
+            { id: 'main', name: 'Main' },
+            { id: 'medical', name: 'Medical' }
+        ];
+        const INITIAL_CHARTS = { main: INITIAL_ORG_DATA, medical: INITIAL_MEDICAL_DATA };
+        const DEFAULT_EXPANDED_IDS = ["1", "2", "3", "4", "5", "6", "7", "7-2", "7-4", MEDICAL_ROOT_ID];
+
+        const LEGACY_STORAGE_KEY = 'clarity-chart-org-data-v1';
+        const STORAGE_KEY = 'clarity-chart-charts-v2';
         const GITHUB_TOKEN_KEY = 'clarity-chart-github-token-v1';
         const GITHUB_SYNC = {
             owner: 'davidlewisj',
@@ -502,6 +513,43 @@
             }
             return normalized;
         };
+
+        const cloneTree = (data) => JSON.parse(JSON.stringify(data));
+
+        // Older saves hold a single tree with the medical team nested under the main chart.
+        const splitLegacyTree = (data) => {
+            const main = cloneTree(sanitizeOrgData(data));
+            let medical = null;
+            const detach = (node) => {
+                if (!Array.isArray(node.children)) return;
+                const idx = node.children.findIndex(child => child && child.id === MEDICAL_ROOT_ID);
+                if (idx !== -1) {
+                    medical = node.children.splice(idx, 1)[0];
+                    return;
+                }
+                node.children.forEach(child => { if (!medical) detach(child); });
+            };
+            detach(main);
+            return { main, medical: medical || cloneTree(INITIAL_MEDICAL_DATA) };
+        };
+
+        const normalizeCharts = (data) => {
+            if (data && Array.isArray(data.charts)) {
+                const result = {};
+                CHART_DEFS.forEach(def => {
+                    const entry = data.charts.find(item => item && item.id === def.id);
+                    const root = entry && entry.root && typeof entry.root === 'object' ? entry.root : null;
+                    result[def.id] = root ? sanitizeOrgData(root) : cloneTree(INITIAL_CHARTS[def.id]);
+                });
+                return result;
+            }
+            if (data && typeof data === 'object' && data.id) return splitLegacyTree(data);
+            return cloneTree(INITIAL_CHARTS);
+        };
+
+        const serializeCharts = (charts) => ({
+            charts: CHART_DEFS.map(def => ({ id: def.id, name: def.name, root: charts[def.id] }))
+        });
 
         const OrgNode = ({ node, expandedNodes, onToggle, searchTerm, editMode, selectedNodeId, onSelectNode, onAddChild, onDeleteNode, onDragStart, onDragOver, onDrop, onDragEnd, dropTargetId, draggedNodeId }) => {
             const hasChildren = node.children && node.children.length > 0;
@@ -678,18 +726,24 @@
                 return 0.8;
             };
 
-            const [orgData, setOrgData] = useState(() => {
+            const [charts, setCharts] = useState(() => {
                 try {
-                    const saved = window.localStorage.getItem(STORAGE_KEY);
-                    if (!saved) return sanitizeOrgData(INITIAL_ORG_DATA);
-                    const parsed = JSON.parse(saved);
-                    if (parsed && typeof parsed === 'object' && parsed.id) return sanitizeOrgData(parsed);
-                    return sanitizeOrgData(INITIAL_ORG_DATA);
+                    const saved = window.localStorage.getItem(STORAGE_KEY) || window.localStorage.getItem(LEGACY_STORAGE_KEY);
+                    if (!saved) return normalizeCharts(null);
+                    return normalizeCharts(JSON.parse(saved));
                 } catch {
-                    return sanitizeOrgData(INITIAL_ORG_DATA);
+                    return normalizeCharts(null);
                 }
             });
-            const [expandedNodes, setExpandedNodes] = useState(new Set(["1", "2", "3", "4", "5", "6", "7", "7-2", "7-4"]));
+            const [activeChartId, setActiveChartId] = useState('main');
+            const activeChartIdRef = useRef(activeChartId);
+            activeChartIdRef.current = activeChartId;
+            const orgData = charts[activeChartId] || charts.main;
+            const setOrgData = useCallback((next) => {
+                const chartId = activeChartIdRef.current;
+                setCharts(prev => ({ ...prev, [chartId]: next }));
+            }, []);
+            const [expandedNodes, setExpandedNodes] = useState(new Set(DEFAULT_EXPANDED_IDS));
             const [searchTerm, setSearchTerm] = useState("");
             const [roleFilter, setRoleFilter] = useState('all');
             const [locationFilter, setLocationFilter] = useState('all');
@@ -1193,7 +1247,13 @@
 
                 const decoded = decodeBase64Utf8(String(payload.content).replace(/\n/g, ''));
                 const parsed = JSON.parse(decoded);
-                const validationErrors = validateImportedTree(parsed);
+                const validationErrors = Array.isArray(parsed && parsed.charts)
+                    ? parsed.charts.flatMap((entry, idx) => (
+                        entry && typeof entry === 'object'
+                            ? validateImportedTree(entry.root).map(err => `charts[${idx}]: ${err}`)
+                            : [`charts[${idx}] must be an object`]
+                    ))
+                    : validateImportedTree(parsed);
                 if (validationErrors.length > 0) {
                     throw new Error(`Shared file invalid (${validationErrors.length} issue${validationErrors.length > 1 ? 's' : ''}).`);
                 }
@@ -1201,7 +1261,7 @@
                 return {
                     exists: true,
                     sha: payload.sha,
-                    data: sanitizeOrgData(parsed)
+                    data: normalizeCharts(parsed)
                 };
             };
 
@@ -1222,9 +1282,10 @@
                     }
 
                     if (showStatus) pushUndoSnapshot(orgData);
-                    setOrgData(result.data);
-                    setExpandedNodes(new Set([result.data.id]));
-                    setSelectedNodeId(result.data.id);
+                    const loadedRoot = result.data[activeChartIdRef.current] || result.data.main;
+                    setCharts(result.data);
+                    setExpandedNodes(new Set([loadedRoot.id]));
+                    setSelectedNodeId(loadedRoot.id);
                     if (showStatus) setEditorStatus('Loaded shared chart from GitHub.');
                 } catch (err) {
                     const message = err && err.message ? err.message : 'Unknown GitHub load error.';
@@ -1279,7 +1340,7 @@
 
                     const payload = {
                         message: `Update shared Clarity Chart (${new Date().toISOString()})`,
-                        content: encodeBase64Utf8(JSON.stringify(orgData, null, 2)),
+                        content: encodeBase64Utf8(JSON.stringify(serializeCharts(charts), null, 2)),
                         branch: GITHUB_SYNC.branch
                     };
 
@@ -1314,11 +1375,11 @@
 
             useEffect(() => {
                 try {
-                    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orgData));
+                    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeCharts(charts)));
                 } catch {
                     // Ignore storage write failures (e.g. private mode quota restrictions).
                 }
-            }, [orgData]);
+            }, [charts]);
 
             useEffect(() => {
                 if (!findNodeById(orgData, selectedNodeId)) {
@@ -1334,6 +1395,20 @@
                 if (!editMode || !selectedNodeId) return;
                 setNewCard(prev => ({ ...prev, parentId: selectedNodeId }));
             }, [editMode, selectedNodeId]);
+
+            const handleSwitchChart = (chartId) => {
+                if (chartId === activeChartId || !charts[chartId]) return;
+                const root = charts[chartId];
+                setActiveChartId(chartId);
+                undoStack.current = [];
+                redoStack.current = [];
+                setDraggedNodeId(null);
+                setDropTargetId(null);
+                setExpandedNodes(new Set(DEFAULT_EXPANDED_IDS));
+                setSelectedNodeId(root.id);
+                setPan({ x: 0, y: 0 });
+                setZoom(getResponsiveDefaultZoom());
+            };
 
             const handleUndo = () => {
                 if (undoStack.current.length === 0) {
@@ -1386,7 +1461,7 @@
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = `clarity-chart-${new Date().toISOString().slice(0, 10)}.json`;
+                link.download = `clarity-chart-${activeChartId}-${new Date().toISOString().slice(0, 10)}.json`;
                 link.click();
                 window.URL.revokeObjectURL(url);
                 setEditorStatus('Chart exported as JSON.');
@@ -1497,12 +1572,12 @@
                 }
 
                 pushUndoSnapshot(orgData);
-                const resetData = cloneNode(INITIAL_ORG_DATA);
+                const resetData = cloneTree(INITIAL_CHARTS[activeChartId] || INITIAL_ORG_DATA);
                 setOrgData(resetData);
-                setExpandedNodes(new Set(["1", "2", "3", "4", "5", "6", "7", "7-2", "7-4"]));
+                setExpandedNodes(new Set(DEFAULT_EXPANDED_IDS));
                 setZoom(getResponsiveDefaultZoom());
                 setPan({ x: 0, y: 0 });
-                setSelectedNodeId('1');
+                setSelectedNodeId(resetData.id);
                 setEditorStatus('Chart reset to default.');
             };
 
@@ -1759,6 +1834,20 @@
                         </div>
                         <div className="w-full lg:w-auto overflow-x-auto overflow-y-visible">
                         <div className="flex items-center gap-2 md:gap-4 min-w-max pb-1 pr-2">
+                            <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white overflow-hidden" role="tablist" aria-label="Charts">
+                                {CHART_DEFS.map(def => (
+                                    <button
+                                        key={def.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={activeChartId === def.id}
+                                        onClick={() => handleSwitchChart(def.id)}
+                                        className={`px-3 py-2 text-xs font-bold uppercase tracking-wide ${activeChartId === def.id ? 'bg-black text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                                    >
+                                        {def.name}
+                                    </button>
+                                ))}
+                            </div>
                             <div className="relative">
                                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"><SearchIcon /></div>
                                 <input 
