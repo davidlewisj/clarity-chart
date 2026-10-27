@@ -533,6 +533,8 @@
             charts: CHART_DEFS.map(def => ({ id: def.id, name: def.name, root: charts[def.id] }))
         });
 
+        const MANAGEMENT_TYPES = ['visionary', 'integrator', 'manager', 'supervisor', 'director'];
+
         const OrgNode = ({ node, expandedNodes, onToggle, searchTerm, editMode, selectedNodeId, onSelectNode, onAddChild, onDeleteNode, onDragStart, onDragOver, onDrop, onDragEnd, dropTargetId, draggedNodeId }) => {
             const hasChildren = node.children && node.children.length > 0;
             const isExpanded = expandedNodes.has(node.id);
@@ -569,6 +571,15 @@
             };
 
             const locationsToRender = node.locations || (node.location ? [node.location] : []);
+
+            // When a card has both management and non-management reports, show management first
+            // and drop the non-management reports one tier lower so the hierarchy reads top-down.
+            const isManagementNode = (n) => MANAGEMENT_TYPES.includes(n.type) || (Array.isArray(n.members) && n.members.length > 0);
+            const childList = node.children || [];
+            const hasMixedTiers = childList.some(isManagementNode) && childList.some(child => !isManagementNode(child));
+            const orderedChildren = hasMixedTiers
+                ? [...childList.filter(isManagementNode), ...childList.filter(child => !isManagementNode(child))]
+                : childList;
 
             return (
                 <div className="flex flex-col items-center">
@@ -678,17 +689,18 @@
                         <div className="relative pt-10 flex">
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-10 bg-slate-300" />
                             <div className="flex gap-8">
-                                {node.children.map((child, idx) => {
+                                {orderedChildren.map((child, idx) => {
                                     const isFirst = idx === 0;
-                                    const isLast = idx === node.children.length - 1;
-                                    const isOnly = node.children.length === 1;
+                                    const isLast = idx === orderedChildren.length - 1;
+                                    const isOnly = orderedChildren.length === 1;
+                                    const dropTier = hasMixedTiers && !isManagementNode(child);
                                     return (
                                         <div key={child.id} className="relative">
                                             {!isOnly && (
                                                 <div className={`absolute top-0 h-[2px] bg-slate-300 ${isFirst ? 'left-1/2 -right-4' : isLast ? '-left-4 right-1/2' : '-left-4 -right-4'}`} />
                                             )}
-                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-10 bg-slate-300" />
-                                            <div className="pt-10">
+                                            <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[2px] bg-slate-300 ${dropTier ? 'h-[222px]' : 'h-10'}`} />
+                                            <div className={dropTier ? 'pt-[222px]' : 'pt-10'}>
                                                 <OrgNode
                                                     node={child}
                                                     expandedNodes={expandedNodes}
