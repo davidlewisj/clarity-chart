@@ -46,11 +46,12 @@
         const ChevronDownIcon = ({ className }) => <svg className={className} xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>;
 
         const Logo = () => (
-            <div className="flex flex-col">
-                <span className="text-[10px] font-bold tracking-tight text-black uppercase leading-none">Center For</span>
-                <span className="text-xl font-black text-black leading-none">TMJ & SLEEP</span>
-                <span className="text-[10px] font-bold tracking-[0.2em] text-black uppercase leading-none mt-0.5">Solutions NW</span>
-            </div>
+            <img
+                src="assets/logo-lockup.svg"
+                alt="Center for TMJ & Sleep Solutions NW"
+                className="h-10 md:h-12 w-auto shrink-0"
+                draggable="false"
+            />
         );
 
         const INITIAL_ORG_DATA = {
@@ -1851,12 +1852,11 @@
             return (
                 <div className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden font-sans select-none">
                     <div className="bg-white border-b border-slate-200 px-3 md:px-8 py-3 md:py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 z-50 shadow-sm">
-                        <div className="flex items-center gap-4 md:gap-8 min-w-0">
+                        <div className="flex items-center gap-4 md:gap-8 shrink-0">
                             <Logo />
                             <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
-                            <div className="min-w-0">
-                                <h1 className="font-extrabold text-slate-900 text-lg md:text-xl leading-none uppercase truncate">Clarity Chart</h1>
-                                <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold mt-1">Center for TMJ & Sleep Solutions NW</p>
+                            <div className="shrink-0">
+                                <h1 className="font-extrabold text-slate-900 text-lg md:text-xl leading-none uppercase whitespace-nowrap">Clarity Chart</h1>
                             </div>
                         </div>
                         <div className="w-full lg:w-auto overflow-x-auto overflow-y-visible">
