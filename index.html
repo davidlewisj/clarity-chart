@@ -61,11 +61,27 @@
             "location": "Silverdale",
             "children": [
                 {
-                    "id": "4",
-                    "name": "David Lewis",
-                    "title": "Operations Manager",
+                    "id": "leadership",
+                    "name": "Leadership Team",
+                    "title": "Operations, HR & Clinical Management",
                     "type": "manager",
-                    "location": "Bellevue",
+                    "members": [
+                        {
+                            "name": "David Lewis",
+                            "title": "Operations Manager",
+                            "location": "Bellevue"
+                        },
+                        {
+                            "name": "Laura Holt",
+                            "title": "HR Manager",
+                            "location": "Silverdale"
+                        },
+                        {
+                            "name": "Tanya Kushner, DDS",
+                            "title": "Clinical Manager",
+                            "location": "Silverdale"
+                        }
+                    ],
                     "children": [
                         {
                             "id": "4-2",
@@ -81,16 +97,7 @@
                             "type": "staff",
                             "location": "Silverdale",
                             "children": []
-                        }
-                    ]
-                },
-                {
-                    "id": "5",
-                    "name": "Laura Holt",
-                    "title": "HR Manager",
-                    "type": "director",
-                    "location": "Silverdale",
-                    "children": [
+                        },
                         {
                             "id": "5-2",
                             "name": "Josy Haggard",
@@ -264,16 +271,7 @@
                                     "children": []
                                 }
                             ]
-                        }
-                    ]
-                },
-                {
-                    "id": "7",
-                    "name": "Tanya Kushner, DDS",
-                    "title": "Clinical Manager",
-                    "type": "manager",
-                    "location": "Silverdale",
-                    "children": [
+                        },
                         {
                             "id": "7-1",
                             "name": "Chris Dryer",
@@ -448,7 +446,7 @@
             { id: 'medical', name: 'Medical' }
         ];
         const INITIAL_CHARTS = { main: INITIAL_ORG_DATA, medical: INITIAL_MEDICAL_DATA };
-        const DEFAULT_EXPANDED_IDS = ["1", "2", "3", "4", "5", "6", "7", "7-2", "7-4", MEDICAL_ROOT_ID];
+        const DEFAULT_EXPANDED_IDS = ["1", "2", "3", "4", "5", "6", "7", "7-2", "7-4", "leadership", MEDICAL_ROOT_ID];
 
         const LEGACY_STORAGE_KEY = 'clarity-chart-org-data-v1';
         const STORAGE_KEY = 'clarity-chart-charts-v2';
@@ -535,13 +533,17 @@
             charts: CHART_DEFS.map(def => ({ id: def.id, name: def.name, root: charts[def.id] }))
         });
 
+        const MANAGEMENT_TYPES = ['visionary', 'integrator', 'manager', 'supervisor', 'director'];
+
         const OrgNode = ({ node, expandedNodes, onToggle, searchTerm, editMode, selectedNodeId, onSelectNode, onAddChild, onDeleteNode, onDragStart, onDragOver, onDrop, onDragEnd, dropTargetId, draggedNodeId }) => {
             const hasChildren = node.children && node.children.length > 0;
             const isExpanded = expandedNodes.has(node.id);
-            const isMatch = searchTerm && (
-                node.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                node.title.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            const members = Array.isArray(node.members) ? node.members : [];
+            const isGroup = members.length > 0;
+            const isMatch = searchTerm && [node, ...members].some(person => (
+                person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                person.title.toLowerCase().includes(searchTerm.toLowerCase())
+            ));
             const isSelected = selectedNodeId === node.id;
 
             const HIDE_LOCATION_TYPES = ['visionary', 'integrator', 'manager'];
@@ -569,6 +571,15 @@
             };
 
             const locationsToRender = node.locations || (node.location ? [node.location] : []);
+
+            // When a card has both management and non-management reports, show management first
+            // and drop the non-management reports one tier lower so the hierarchy reads top-down.
+            const isManagementNode = (n) => MANAGEMENT_TYPES.includes(n.type) || (Array.isArray(n.members) && n.members.length > 0);
+            const childList = node.children || [];
+            const hasMixedTiers = childList.some(isManagementNode) && childList.some(child => !isManagementNode(child));
+            const orderedChildren = hasMixedTiers
+                ? [...childList.filter(isManagementNode), ...childList.filter(child => !isManagementNode(child))]
+                : childList;
 
             return (
                 <div className="flex flex-col items-center">
@@ -606,7 +617,7 @@
                             }
                             if (hasChildren) onToggle(node.id);
                         }}
-                        className={`relative z-10 w-64 p-5 rounded-xl shadow-md border-2 transition-all duration-300 cursor-pointer
+                        className={`relative z-10 ${isGroup ? 'w-auto' : 'w-64'} p-5 rounded-xl shadow-md border-2 transition-all duration-300 cursor-pointer
                             ${getTheme(node.type)}
                             ${isMatch ? 'ring-4 ring-yellow-400 scale-105 z-20 shadow-xl' : 'hover:shadow-lg hover:-translate-y-0.5'}
                             ${isSelected ? 'ring-4 ring-emerald-400 scale-[1.02] shadow-xl' : ''}
@@ -623,10 +634,24 @@
                                 ))}
                             </div>
                         )}
-                        <div className="flex flex-col items-center text-center gap-1 mt-1">
-                            <h3 className={`font-bold text-sm leading-tight w-full text-left ${showLocation ? 'pr-12' : ''}`}>{node.name}</h3>
-                            <p className="text-[11px] font-medium opacity-70 uppercase tracking-wide text-left w-full">{node.title}</p>
-                        </div>
+                        {isGroup ? (
+                            <div className="flex flex-col gap-2">
+                                <p className="text-[10px] font-bold uppercase tracking-widest opacity-60 text-left">{node.name}</p>
+                                <div className="flex divide-x divide-slate-300">
+                                    {members.map((member, i) => (
+                                        <div key={i} className="w-52 px-4 first:pl-0 last:pr-0 flex flex-col gap-1">
+                                            <h3 className="font-bold text-sm leading-tight text-left">{member.name}</h3>
+                                            <p className="text-[11px] font-medium opacity-70 uppercase tracking-wide text-left">{member.title}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center text-center gap-1 mt-1">
+                                <h3 className={`font-bold text-sm leading-tight w-full text-left ${showLocation ? 'pr-12' : ''}`}>{node.name}</h3>
+                                <p className="text-[11px] font-medium opacity-70 uppercase tracking-wide text-left w-full">{node.title}</p>
+                            </div>
+                        )}
                         {editMode ? (
                             <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white rounded-full border border-slate-200 p-0.5 shadow-sm z-30">
                                 <button
@@ -664,17 +689,18 @@
                         <div className="relative pt-10 flex">
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-10 bg-slate-300" />
                             <div className="flex gap-8">
-                                {node.children.map((child, idx) => {
+                                {orderedChildren.map((child, idx) => {
                                     const isFirst = idx === 0;
-                                    const isLast = idx === node.children.length - 1;
-                                    const isOnly = node.children.length === 1;
+                                    const isLast = idx === orderedChildren.length - 1;
+                                    const isOnly = orderedChildren.length === 1;
+                                    const dropTier = hasMixedTiers && !isManagementNode(child);
                                     return (
                                         <div key={child.id} className="relative">
                                             {!isOnly && (
                                                 <div className={`absolute top-0 h-[2px] bg-slate-300 ${isFirst ? 'left-1/2 -right-4' : isLast ? '-left-4 right-1/2' : '-left-4 -right-4'}`} />
                                             )}
-                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-10 bg-slate-300" />
-                                            <div className="pt-10">
+                                            <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-[2px] bg-slate-300 ${dropTier ? 'h-[222px]' : 'h-10'}`} />
+                                            <div className={dropTier ? 'pt-[222px]' : 'pt-10'}>
                                                 <OrgNode
                                                     node={child}
                                                     expandedNodes={expandedNodes}
@@ -831,7 +857,10 @@
 
                 const nodeMatches = (node) => {
                     const typeOk = roleFilter === 'all' || node.type === roleFilter;
-                    const nodeLocations = node.locations || (node.location ? [node.location] : []);
+                    const nodeLocations = [
+                        ...(node.locations || (node.location ? [node.location] : [])),
+                        ...(Array.isArray(node.members) ? node.members.map(member => member.location).filter(Boolean) : [])
+                    ];
                     const locationOk = locationFilter === 'all' || nodeLocations.includes(locationFilter);
                     return typeOk && locationOk;
                 };
@@ -1193,6 +1222,20 @@
                     if (node.locations !== undefined) {
                         if (!Array.isArray(node.locations) || node.locations.some(loc => typeof loc !== 'string')) {
                             errors.push(`${path}.locations must be an array of strings`);
+                        }
+                    }
+
+                    if (node.members !== undefined) {
+                        if (!Array.isArray(node.members)) {
+                            errors.push(`${path}.members must be an array`);
+                        } else {
+                            node.members.forEach((member, idx) => {
+                                if (!member || typeof member !== 'object'
+                                    || typeof member.name !== 'string' || !member.name.trim()
+                                    || typeof member.title !== 'string' || !member.title.trim()) {
+                                    errors.push(`${path}.members[${idx}] needs a non-empty name and title`);
+                                }
+                            });
                         }
                     }
 
